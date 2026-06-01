@@ -1,0 +1,26 @@
+body{
+    margin:0;
+    overflow:hidden;
+    font-family:Arial,sans-serif;
+}
+
+#menu{
+    width:100vw;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(45deg,#00aaff,#00ff88);
+}
+
+h1{
+    color:white;
+    font-size:80px;
+}
+
+button{
+    font-size:30px;
+    padding:15px 40px;
+    cursor:pointer;
+}
