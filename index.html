@@ -1,10 +1,192 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PixelLOL</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, sans-serif;
+}
+
+body{
+    overflow:hidden;
+    height:100vh;
+}
+
+/* Animowane tło */
+
+body{
+    background:linear-gradient(
+        -45deg,
+        #ff0080,
+        #7928ca,
+        #00c6ff,
+        #00ff88
+    );
+
+    background-size:400% 400%;
+    animation:bg 12s ease infinite;
+}
+
+@keyframes bg{
+    0%{background-position:0% 50%;}
+    50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+}
+
+/* Gwiazdki */
+
+.stars{
+    position:absolute;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+}
+
+.star{
+    position:absolute;
+    width:4px;
+    height:4px;
+    background:white;
+    border-radius:50%;
+    animation:float 8s linear infinite;
+}
+
+@keyframes float{
+    from{
+        transform:translateY(100vh);
+    }
+    to{
+        transform:translateY(-100px);
+    }
+}
+
+/* Menu */
+
+.menu{
+    position:absolute;
+    width:100%;
+    height:100%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+}
+
+/* Tytuł */
+
+.title{
+    font-size:120px;
+    color:white;
+    font-weight:900;
+
+    text-shadow:
+    0 0 10px white,
+    0 0 30px white,
+    0 0 60px cyan;
+
+    animation:pulse 2s infinite;
+}
+
+@keyframes pulse{
+    50%{
+        transform:scale(1.05);
+    }
+}
+
+/* Przyciski */
+
+.btn{
+    margin-top:25px;
+
+    width:320px;
+    height:80px;
+
+    border:none;
+    border-radius:20px;
+
+    font-size:32px;
+    font-weight:bold;
+
+    cursor:pointer;
+
+    color:white;
+
+    background:
+    linear-gradient(
+        45deg,
+        #ff00ff,
+        #00ffff
+    );
+
+    box-shadow:
+    0 0 20px cyan,
+    0 0 40px cyan;
+
+    transition:.3s;
+}
+
+.btn:hover{
+    transform:scale(1.1);
+}
+
+.version{
+    position:absolute;
+    bottom:20px;
+    color:white;
+    font-size:18px;
+}
+
+</style>
 </head>
 <body>
-<h1>PixelLOL</h1>
-<button onclick="alert('Gra będzie tutaj!')">START</button>
+
+<div class="stars"></div>
+
+<div class="menu">
+
+<h1 class="title">PIXELLOL</h1>
+
+<button class="btn">START</button>
+
+<button class="btn">SETTINGS</button>
+
+<button class="btn">CREDITS</button>
+
+<div class="version">
+Version 0.1 Alpha
+</div>
+
+</div>
+
+<script>
+
+const stars = document.querySelector(".stars");
+
+for(let i=0;i<150;i++){
+
+    const star = document.createElement("div");
+
+    star.classList.add("star");
+
+    star.style.left=Math.random()*100+"%";
+
+    star.style.animationDuration=
+    3+Math.random()*8+"s";
+
+    star.style.opacity=Math.random();
+
+    stars.appendChild(star);
+}
+
+</script>
+
 </body>
 </html>
