@@ -2,10 +2,11 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PixelLOL</title>
 
 <style>
+
 *{
     margin:0;
     padding:0;
@@ -14,209 +15,294 @@
 
 body{
     overflow:hidden;
-    font-family:Arial,sans-serif;
+    font-family:Arial;
+    background:black;
 }
-
-/* MENU */
 
 #menu{
     position:absolute;
     width:100%;
     height:100%;
+    background:linear-gradient(#111,#000);
     display:flex;
+    flex-direction:column;
     justify-content:center;
     align-items:center;
-    flex-direction:column;
-
-    background:linear-gradient(
-        -45deg,
-        #ff0080,
-        #7928ca,
-        #00c6ff,
-        #00ff88
-    );
-
-    background-size:400% 400%;
-    animation:bg 12s infinite;
+    z-index:10;
 }
 
-@keyframes bg{
-    0%{background-position:0% 50%;}
-    50%{background-position:100% 50%;}
-    100%{background-position:0% 50%;}
-}
-
-h1{
+#menu h1{
     color:white;
-    font-size:100px;
-    text-shadow:0 0 30px white;
+    font-size:70px;
+    margin-bottom:40px;
 }
 
-button{
-    margin-top:30px;
+.teamBtn{
     width:300px;
-    height:80px;
+    height:70px;
+    margin:10px;
     border:none;
-    border-radius:20px;
-    font-size:35px;
+    font-size:24px;
     cursor:pointer;
+    color:white;
 }
 
-button:hover{
-    transform:scale(1.1);
+.red{
+    background:#d40000;
 }
 
-#gameCanvas{
+.blue{
+    background:#0066ff;
+}
+
+#hud{
+    position:absolute;
+    top:10px;
+    left:10px;
+    color:white;
+    font-size:24px;
     display:none;
+    z-index:5;
 }
+
+#crosshair{
+    position:absolute;
+    width:20px;
+    height:20px;
+    border:3px solid white;
+    border-radius:50%;
+    pointer-events:none;
+    transform:translate(-50%,-50%);
+}
+
+canvas{
+    display:block;
+}
+
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1>PIXELLOL</h1>
-    <button id="startBtn">START</button>
+    <h1>PIXEL LOL</h1>
+
+    <button class="teamBtn red"
+    onclick="startGame('red')">
+    CZERWONI
+    </button>
+
+    <button class="teamBtn blue"
+    onclick="startGame('blue')">
+    NIEBIESCY
+    </button>
 </div>
 
-<canvas id="gameCanvas"></canvas>
+<div id="hud">
+    ❤️ HP: <span id="hp">100</span><br>
+    🏆 Punkty: <span id="score">0</span><br>
+    🔴 Drużyna:
+    <span id="team"></span>
+</div>
+
+<div id="crosshair"></div>
+
+<canvas id="game"></canvas>
 
 <script>
 
-const startBtn = document.getElementById("startBtn");
-const menu = document.getElementById("menu");
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const canvas =
+document.getElementById("game");
 
-startBtn.onclick = () => {
+const ctx =
+canvas.getContext("2d");
 
-    menu.style.display = "none";
-    canvas.style.display = "block";
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
 
-    startGame();
+let gameStarted=false;
+
+let keys={};
+
+let camera={
+    x:0,
+    y:0
 };
 
-function startGame(){
+let player={
+    x:2500,
+    y:2500,
+    size:40,
+    speed:6,
+    hp:100,
+    score:0,
+    team:"red"
+};
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+const MAP_SIZE=5000;
 
-    let player = {
-        x:500,
-        y:500,
-        size:30,
-        speed:5
-    };
+document.addEventListener("keydown",(e)=>{
+    keys[e.key.toLowerCase()]=true;
+});
 
-    const keys = {};
+document.addEventListener("keyup",(e)=>{
+    keys[e.key.toLowerCase()]=false;
+});
 
-    document.addEventListener("keydown",e=>{
-        keys[e.key.toLowerCase()] = true;
-    });
+document.addEventListener("mousemove",(e)=>{
 
-    document.addEventListener("keyup",e=>{
-        keys[e.key.toLowerCase()] = false;
-    });
+    const c=
+    document.getElementById("crosshair");
 
-    const trees = [];
-    const houses = [];
+    c.style.left=e.clientX+"px";
+    c.style.top=e.clientY+"px";
 
-    for(let i=0;i<50;i++){
-        trees.push({
-            x:Math.random()*3000,
-            y:Math.random()*3000
-        });
-    }
+});
 
-    for(let i=0;i<15;i++){
-        houses.push({
-            x:Math.random()*3000,
-            y:Math.random()*3000,
-            w:120,
-            h:120
-        });
-    }
+function startGame(team){
 
-    function update(){
+    player.team=team;
 
-        if(keys["w"]) player.y -= player.speed;
-        if(keys["s"]) player.y += player.speed;
-        if(keys["a"]) player.x -= player.speed;
-        if(keys["d"]) player.x += player.speed;
-    }
+    document.getElementById("menu")
+    .style.display="none";
 
-    function draw(){
+    document.getElementById("hud")
+    .style.display="block";
 
-        ctx.clearRect(0,0,canvas.width,canvas.height);
+    document.getElementById("team")
+    .innerText=
+    team==="red"
+    ?"CZERWONI"
+    :"NIEBIESCY";
 
-        const camX = player.x - canvas.width/2;
-        const camY = player.y - canvas.height/2;
-
-        ctx.fillStyle="#6ac259";
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-
-        for(const tree of trees){
-
-            const x = tree.x - camX;
-            const y = tree.y - camY;
-
-            ctx.fillStyle="brown";
-            ctx.fillRect(x+10,y+20,20,30);
-
-            ctx.fillStyle="green";
-            ctx.beginPath();
-            ctx.arc(x+20,y+15,25,0,Math.PI*2);
-            ctx.fill();
-        }
-
-        for(const h of houses){
-
-            ctx.fillStyle="gray";
-
-            ctx.fillRect(
-                h.x-camX,
-                h.y-camY,
-                h.w,
-                h.h
-            );
-        }
-
-        ctx.fillStyle="red";
-
-        ctx.fillRect(
-            1500-camX,
-            1500-camY,
-            80,
-            40
-        );
-
-        ctx.fillStyle="blue";
-
-        ctx.fillRect(
-            player.x-camX,
-            player.y-camY,
-            player.size,
-            player.size
-        );
-
-        ctx.fillStyle="white";
-        ctx.font="24px Arial";
-        ctx.fillText(
-            "WASD - ruch",
-            20,
-            40
-        );
-    }
-
-    function loop(){
-
-        update();
-        draw();
-
-        requestAnimationFrame(loop);
-    }
-
-    loop();
+    gameStarted=true;
 }
+
+function movePlayer(){
+
+    if(keys["w"])
+    player.y-=player.speed;
+
+    if(keys["s"])
+    player.y+=player.speed;
+
+    if(keys["a"])
+    player.x-=player.speed;
+
+    if(keys["d"])
+    player.x+=player.speed;
+
+    player.x=Math.max(
+        0,
+        Math.min(MAP_SIZE,
+        player.x)
+    );
+
+    player.y=Math.max(
+        0,
+        Math.min(MAP_SIZE,
+        player.y)
+    );
+}
+
+function drawMap(){
+
+    ctx.fillStyle="#222";
+
+    ctx.fillRect(
+        0,
+        0,
+        MAP_SIZE,
+        MAP_SIZE
+    );
+
+    ctx.strokeStyle="#333";
+
+    for(let x=0;x<MAP_SIZE;x+=100){
+
+        ctx.beginPath();
+        ctx.moveTo(x,0);
+        ctx.lineTo(x,MAP_SIZE);
+        ctx.stroke();
+    }
+
+    for(let y=0;y<MAP_SIZE;y+=100){
+
+        ctx.beginPath();
+        ctx.moveTo(0,y);
+        ctx.lineTo(MAP_SIZE,y);
+        ctx.stroke();
+    }
+}
+
+function drawPlayer(){
+
+    ctx.fillStyle=
+    player.team==="red"
+    ?"#ff2222"
+    :"#2288ff";
+
+    ctx.fillRect(
+        player.x-player.size/2,
+        player.y-player.size/2,
+        player.size,
+        player.size
+    );
+}
+
+function updateCamera(){
+
+    camera.x=
+    player.x-canvas.width/2;
+
+    camera.y=
+    player.y-canvas.height/2;
+}
+
+function updateHUD(){
+
+    document.getElementById("hp")
+    .innerText=player.hp;
+
+    document.getElementById("score")
+    .innerText=player.score;
+}
+
+function gameLoop(){
+
+    requestAnimationFrame(gameLoop);
+
+    if(!gameStarted)
+    return;
+
+    movePlayer();
+
+    updateCamera();
+
+    updateHUD();
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.save();
+
+    ctx.translate(
+        -camera.x,
+        -camera.y
+    );
+
+    drawMap();
+
+    drawPlayer();
+
+    ctx.restore();
+}
+
+gameLoop();
+
 </script>
 
 </body>
