@@ -2,31 +2,28 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Flat Minecraft 3D</title>
+<title>Minecraft MULTI</title>
 
 <style>
-body{margin:0;overflow:hidden;}
-canvas{display:block;}
+body { margin:0; overflow:hidden; cursor:none; }
+canvas { display:block; }
 
-#hud{
+#crosshair{
 position:fixed;
-top:10px;
-left:10px;
-color:white;
-background:rgba(0,0,0,0.5);
-padding:10px;
-font-family:Arial;
+left:50%;
+top:50%;
+width:10px;
+height:10px;
+border:2px solid white;
+transform:translate(-50%,-50%);
+border-radius:50%;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">
-FLAT MINECRAFT 3D<br>
-WASD + MYSZ<br>
-LPM = blok | PPM = niszcz
-</div>
+<div id="crosshair"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -35,7 +32,7 @@ LPM = blok | PPM = niszcz
 
 const socket = io();
 
-// 🌍 SCENA
+// SCENA
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
@@ -45,102 +42,38 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// LIGHT
 scene.add(new THREE.AmbientLight(0xffffff,1));
-
-// WORLD
-let world = [];
-let meshes = [];
-
-// PLAYERS
-let players = {};
 
 // PLAYER
 let me = {
-x:0,
-y:2,
-z:0,
-rotY:0,
-speed:0.08
+x:0,y:2,z:0,rotY:0,speed:0.08
 };
 
-// COLORS
-const colors = [0x8B4513,0x777777,0x00ff00];
-let currentBlock = 0;
+// INNI GRACZE
+let players = {};
+let meshes = {};
 
-// INIT
-socket.on("init",(data)=>{
-world = data.world;
-drawWorld();
+// LOCK MYSZY
+document.body.addEventListener("click",()=>{
+document.body.requestPointerLock();
 });
 
-// PLAYERS
-socket.on("players",(p)=>{
-players = p;
-});
-
-// WORLD UPDATE
-socket.on("world",(w)=>{
-world = w;
-drawWorld();
-});
-
-// CREATE BLOCK
-function addBlock(b){
-const geo = new THREE.BoxGeometry(1,1,1);
-const mat = new THREE.MeshBasicMaterial({color:colors[b.type]});
-const mesh = new THREE.Mesh(geo,mat);
-
-mesh.position.set(b.x,b.y,b.z);
-scene.add(mesh);
-meshes.push(mesh);
-}
-
-// REDRAW WORLD
-function drawWorld(){
-meshes.forEach(m=>scene.remove(m));
-meshes=[];
-
-world.forEach(addBlock);
-}
-
-// INPUT
-let keys={};
-
-document.addEventListener("keydown",(e)=>{
-keys[e.key.toLowerCase()] = true;
-
-if(e.key==="1") currentBlock=0;
-if(e.key==="2") currentBlock=1;
-if(e.key==="3") currentBlock=2;
-});
-
-document.addEventListener("keyup",(e)=>{
-keys[e.key.toLowerCase()] = false;
-});
-
-// MOUSE LOOK
+// MYSZ
 document.addEventListener("mousemove",(e)=>{
+if(document.pointerLockElement === document.body){
 me.rotY -= e.movementX * 0.002;
+}
 camera.rotation.y = me.rotY;
 });
 
-// KOLIZJE (FLAT WORLD)
-function collide(x,z){
+// KLAWIATURA
+let keys={};
 
-for(let b of world){
-if(b.type !== 2){ // ziemia nie blokuje
-if(Math.abs(x-b.x)<0.5 && Math.abs(z-b.z)<0.5){
-return true;
-}
-}
-}
+document.addEventListener("keydown",(e)=>keys[e.key.toLowerCase()]=true);
+document.addEventListener("keyup",(e)=>keys[e.key.toLowerCase()]=false);
 
-return false;
-}
-
-// MOVE
-function update(){
+// RUCH
+function move(){
 
 let nx = me.x;
 let nz = me.z;
@@ -162,52 +95,49 @@ nx += Math.sin(me.rotY+Math.PI/2)*me.speed;
 nz += Math.cos(me.rotY+Math.PI/2)*me.speed;
 }
 
-if(!collide(nx,nz)){
 me.x = nx;
 me.z = nz;
-}
 
 camera.position.set(me.x,me.y,me.z);
 
 socket.emit("move",me);
 }
 
-// 🧱 STAWIANIE
-document.addEventListener("click",()=>{
-world.push({
-x:Math.round(me.x + Math.sin(me.rotY)),
-y:1,
-z:Math.round(me.z + Math.cos(me.rotY)),
-type:currentBlock
-});
+// RYSUJ GRACZY
+function renderPlayers(){
 
-socket.emit("addBlock",world[world.length-1]);
-});
+for(let id in players){
 
-// ❌ NISZCZENIE
-document.addEventListener("contextmenu",(e)=>{
-e.preventDefault();
-
-let best = -1;
-let dist = 999;
-
-world.forEach((b,i)=>{
-let d = Math.hypot(b.x-me.x, b.z-me.z);
-if(d < 3 && d < dist){
-dist = d;
-best = i;
+if(!meshes[id]){
+const mesh = new THREE.Mesh(
+new THREE.BoxGeometry(0.8,1.6,0.8),
+new THREE.MeshBasicMaterial({color:0xff0000})
+);
+scene.add(mesh);
+meshes[id]=mesh;
 }
-});
 
-if(best !== -1){
-socket.emit("removeBlock",best);
+meshes[id].position.set(
+players[id].x,
+players[id].y,
+players[id].z
+);
+
 }
+}
+
+// SOCKET
+socket.on("players",(data)=>{
+players = data;
 });
 
 // LOOP
 function loop(){
 requestAnimationFrame(loop);
-update();
+
+move();
+renderPlayers();
+
 renderer.render(scene,camera);
 }
 
