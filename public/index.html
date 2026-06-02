@@ -2,146 +2,175 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Minecraft MULTI</title>
+<title>Mini Miasto 2D FPS</title>
 
 <style>
-body { margin:0; overflow:hidden; cursor:none; }
-canvas { display:block; }
+body{
+margin:0;
+overflow:hidden;
+background:#222;
+cursor:crosshair;
+}
 
-#crosshair{
+#hud{
 position:fixed;
-left:50%;
-top:50%;
-width:10px;
-height:10px;
-border:2px solid white;
-transform:translate(-50%,-50%);
-border-radius:50%;
+top:10px;
+left:10px;
+color:white;
+font-family:Arial;
+background:rgba(0,0,0,0.5);
+padding:10px;
+}
+
+canvas{
+display:block;
 }
 </style>
 </head>
 
 <body>
 
-<div id="crosshair"></div>
+<div id="hud">
+MINI MIASTO 2D<br>
+WASD + mysz + klik = strzał<br>
+HP / Kills
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<canvas id="c"></canvas>
+
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
 
 const socket = io();
 
-// SCENA
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
 
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+c.width = innerWidth;
+c.height = innerHeight;
 
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
-
-scene.add(new THREE.AmbientLight(0xffffff,1));
-
-// PLAYER
+// 👤 GRACZ
 let me = {
-x:0,y:2,z:0,rotY:0,speed:0.08
+x:200,
+y:200,
+speed:3,
+hp:100,
+kills:0
 };
 
-// INNI GRACZE
+// 👥 INNI
 let players = {};
-let meshes = {};
 
-// LOCK MYSZY
-document.body.addEventListener("click",()=>{
-document.body.requestPointerLock();
-});
+// 🏙️ MIASTO (budynki)
+const buildings = [
+{x:100,y:100,w:100,h:150},
+{x:400,y:200,w:120,h:200},
+{x:700,y:300,w:150,h:120},
+{x:300,y:500,w:200,h:150}
+];
 
-// MYSZ
-document.addEventListener("mousemove",(e)=>{
-if(document.pointerLockElement === document.body){
-me.rotY -= e.movementX * 0.002;
-}
-camera.rotation.y = me.rotY;
-});
-
-// KLAWIATURA
+// INPUT
 let keys={};
 
-document.addEventListener("keydown",(e)=>keys[e.key.toLowerCase()]=true);
-document.addEventListener("keyup",(e)=>keys[e.key.toLowerCase()]=false);
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
-// RUCH
-function move(){
+// MOVE
+function update(){
 
 let nx = me.x;
-let nz = me.z;
+let ny = me.y;
 
-if(keys["w"]){
-nx += Math.sin(me.rotY)*me.speed;
-nz += Math.cos(me.rotY)*me.speed;
-}
-if(keys["s"]){
-nx -= Math.sin(me.rotY)*me.speed;
-nz -= Math.cos(me.rotY)*me.speed;
-}
-if(keys["a"]){
-nx += Math.sin(me.rotY-Math.PI/2)*me.speed;
-nz += Math.cos(me.rotY-Math.PI/2)*me.speed;
-}
-if(keys["d"]){
-nx += Math.sin(me.rotY+Math.PI/2)*me.speed;
-nz += Math.cos(me.rotY+Math.PI/2)*me.speed;
-}
+if(keys["w"]) ny -= me.speed;
+if(keys["s"]) ny += me.speed;
+if(keys["a"]) nx -= me.speed;
+if(keys["d"]) nx += me.speed;
 
 me.x = nx;
-me.z = nz;
-
-camera.position.set(me.x,me.y,me.z);
+me.y = ny;
 
 socket.emit("move",me);
 }
 
+// 🔫 STRZELANIE
+document.addEventListener("click",(e)=>{
+
+socket.emit("shoot",{
+x:me.x,
+y:me.y
+});
+
+});
+
+// RYSOWANIE MIASTA
+function drawCity(){
+
+ctx.fillStyle="#333";
+ctx.fillRect(0,0,c.width,c.height);
+
+// ulice
+ctx.strokeStyle="#555";
+for(let i=0;i<10;i++){
+ctx.beginPath();
+ctx.moveTo(i*100,0);
+ctx.lineTo(i*100,c.height);
+ctx.stroke();
+}
+
+// budynki
+ctx.fillStyle="#777";
+for(let b of buildings){
+ctx.fillRect(b.x,b.y,b.w,b.h);
+}
+
+}
+
 // RYSUJ GRACZY
-function renderPlayers(){
+function drawPlayers(){
 
 for(let id in players){
 
-if(!meshes[id]){
-const mesh = new THREE.Mesh(
-new THREE.BoxGeometry(0.8,1.6,0.8),
-new THREE.MeshBasicMaterial({color:0xff0000})
-);
-scene.add(mesh);
-meshes[id]=mesh;
-}
+let p = players[id];
 
-meshes[id].position.set(
-players[id].x,
-players[id].y,
-players[id].z
-);
+ctx.fillStyle = "red";
+
+ctx.beginPath();
+ctx.arc(p.x,p.y,10,0,Math.PI*2);
+ctx.fill();
 
 }
-}
 
-// SOCKET
-socket.on("players",(data)=>{
-players = data;
-});
+}
 
 // LOOP
 function loop(){
 requestAnimationFrame(loop);
 
-move();
-renderPlayers();
+update();
 
-renderer.render(scene,camera);
+drawCity();
+drawPlayers();
+
+ctx.fillStyle="yellow";
+ctx.beginPath();
+ctx.arc(me.x,me.y,10,0,Math.PI*2);
+ctx.fill();
+
 }
 
 loop();
+
+// SOCKET
+socket.on("players",(data)=>{
+players=data;
+
+if(players[socket.id]){
+me.hp = players[socket.id].hp;
+me.kills = players[socket.id].kills;
+}
+
+});
 
 </script>
 
