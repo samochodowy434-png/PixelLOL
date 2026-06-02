@@ -2,44 +2,87 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>2D FPS BASIC</title>
+<title>2D FPS PRO</title>
 
 <style>
 body{
 margin:0;
 overflow:hidden;
-background:#111;
 font-family:Arial;
+background:#0f1720;
 }
 
-canvas{
-display:block;
+/* START MENU */
+#menu{
+position:absolute;
+width:100%;
+height:100%;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+background:linear-gradient(#111,#000);
+z-index:10;
 }
 
+#menu h1{
+color:white;
+font-size:60px;
+margin-bottom:20px;
+}
+
+button{
+padding:15px 40px;
+font-size:20px;
+border:none;
+cursor:pointer;
+background:#00aaff;
+color:white;
+border-radius:10px;
+}
+
+/* HUD */
 #hud{
 position:fixed;
 top:10px;
 left:10px;
 color:white;
-font-size:14px;
+background:rgba(0,0,0,0.4);
+padding:10px;
+border-radius:8px;
+display:none;
 }
 
+/* CROSSHAIR */
 #cross{
 position:fixed;
 left:50%;
 top:50%;
-width:8px;
-height:8px;
+width:10px;
+height:10px;
 border:2px solid white;
 border-radius:50%;
 transform:translate(-50%,-50%);
+display:none;
+}
+
+canvas{
+display:block;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">2D FPS BASIC</div>
+<div id="menu">
+<h1>🔥 2D FPS ONLINE</h1>
+<button onclick="startGame()">START</button>
+</div>
+
+<div id="hud">
+HP: <span id="hp">100</span>
+</div>
+
 <div id="cross"></div>
 
 <canvas id="c"></canvas>
@@ -57,13 +100,23 @@ canvas.height = innerHeight;
 
 let players = {};
 let myId = null;
+let gameStarted = false;
 
 let me = {
-x: 200,
-y: 200,
+x: 300,
+y: 300,
 speed: 4
 };
 
+// START
+function startGame(){
+document.getElementById("menu").style.display = "none";
+document.getElementById("hud").style.display = "block";
+document.getElementById("cross").style.display = "block";
+gameStarted = true;
+}
+
+// SOCKET
 socket.on("init", (id)=>{
 myId = id;
 });
@@ -72,7 +125,7 @@ socket.on("players", (data)=>{
 players = data;
 });
 
-// ruch
+// INPUT
 let keys = {};
 
 document.addEventListener("keydown",(e)=>{
@@ -83,7 +136,10 @@ document.addEventListener("keyup",(e)=>{
 keys[e.key.toLowerCase()] = false;
 });
 
+// MOVE
 function update(){
+
+if(!gameStarted) return;
 
 if(keys["w"]) me.y -= me.speed;
 if(keys["s"]) me.y += me.speed;
@@ -93,51 +149,83 @@ if(keys["d"]) me.x += me.speed;
 socket.emit("move", me);
 }
 
-// strzelanie
+// SHOOT
 document.addEventListener("click", ()=>{
+
+if(!gameStarted) return;
+
 socket.emit("shoot", {
 x: me.x,
 y: me.y
 });
 });
 
-// rysowanie
+// DRAW MAP (ładniejsze tło)
+function drawMap(){
+
+ctx.fillStyle = "#1b2a34";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+// grid
+ctx.strokeStyle = "rgba(255,255,255,0.05)";
+for(let x=0;x<canvas.width;x+=40){
+ctx.beginPath();
+ctx.moveTo(x,0);
+ctx.lineTo(x,canvas.height);
+ctx.stroke();
+}
+
+for(let y=0;y<canvas.height;y+=40){
+ctx.beginPath();
+ctx.moveTo(0,y);
+ctx.lineTo(canvas.width,y);
+ctx.stroke();
+}
+}
+
+// DRAW
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// gracze
+if(!gameStarted) return;
+
+drawMap();
+
+// players
 for(let id in players){
 
 let p = players[id];
 
-ctx.fillStyle = p.team === "red" ? "red" : "blue";
+ctx.fillStyle = p.team === "red" ? "#ff3b3b" : "#3b8bff";
 
-ctx.fillRect(p.x-10, p.y-10, 20, 20);
+ctx.beginPath();
+ctx.arc(p.x, p.y, 12, 0, Math.PI*2);
+ctx.fill();
 
-// HP
+// HP bar
 ctx.fillStyle = "red";
-ctx.fillRect(p.x-10, p.y-18, 20, 3);
+ctx.fillRect(p.x-12, p.y-18, 24, 4);
 
 ctx.fillStyle = "lime";
-ctx.fillRect(p.x-10, p.y-18, (p.hp/100)*20, 3);
+ctx.fillRect(p.x-12, p.y-18, (p.hp/100)*24, 4);
 }
 
-// ty
+// player (ty)
 ctx.fillStyle = "yellow";
-ctx.fillRect(me.x-10, me.y-10, 20, 20);
-
-requestAnimationFrame(draw);
+ctx.beginPath();
+ctx.arc(me.x, me.y, 12, 0, Math.PI*2);
+ctx.fill();
 }
 
-// loop
+// LOOP
 function loop(){
 update();
+draw();
 requestAnimationFrame(loop);
 }
 
 loop();
-draw();
 
 </script>
 
