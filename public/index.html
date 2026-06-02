@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>PRO FPS ONLINE</title>
+<title>PixelLOL Multiplayer</title>
 
 <style>
 body{
@@ -10,10 +10,12 @@ margin:0;
 overflow:hidden;
 background:#111;
 cursor:none;
+font-family:Arial;
 }
 
 canvas{
 display:block;
+background:#0f0f0f;
 }
 
 #hud{
@@ -21,76 +23,116 @@ position:fixed;
 top:10px;
 left:10px;
 color:white;
-font-family:Arial;
+font-size:18px;
+z-index:10;
+}
+
+#info{
+position:fixed;
+top:40px;
+left:10px;
+color:#aaa;
+font-size:14px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">PRO FPS ONLINE</div>
+<div id="hud">🟦 MULTIPLAYER FPS</div>
+<div id="info">WASD = ruch</div>
+
 <canvas id="c"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
 const socket = io();
-let players = {};
+
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
-socket.on("init", (data) => {
-    players = data;
-});
 
-socket.on("players", (data) => {
-    players = data;
-});
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-const socket = io();
-
 let players = {};
 
+// 🧍 lokalny gracz
 let me = {
-    x: 200,
-    y: 200,
-    speed: 4
+x: Math.random() * 500,
+y: Math.random() * 500,
+speed: 4
 };
 
-document.addEventListener("keydown", (e) => {
-
-if (e.key === "w") me.y -= me.speed;
-if (e.key === "s") me.y += me.speed;
-if (e.key === "a") me.x -= me.speed;
-if (e.key === "d") me.x += me.speed;
-
-socket.emit("move", me);
-
+// 📡 odbiór graczy
+socket.on("init", (data) => {
+players = data;
 });
 
 socket.on("players", (data) => {
 players = data;
 });
 
-function draw(){
+// 🎮 ruch WASD
+let keys = {};
+
+document.addEventListener("keydown", (e) => {
+keys[e.key.toLowerCase()] = true;
+});
+
+document.addEventListener("keyup", (e) => {
+keys[e.key.toLowerCase()] = false;
+});
+
+// 🔁 update ruchu
+function update() {
+
+if(keys["w"]) me.y -= me.speed;
+if(keys["s"]) me.y += me.speed;
+if(keys["a"]) me.x -= me.speed;
+if(keys["d"]) me.x += me.speed;
+
+// wysyłanie do serwera
+socket.emit("move", me);
+
+}
+
+// 🎨 rysowanie
+function draw() {
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
+// gracze
 for(let id in players){
 
 let p = players[id];
 
-ctx.fillStyle = p.team;
-ctx.fillRect(p.x, p.y, 20, 20);
+ctx.fillStyle = (id === socket.id) ? "lime" : "deepskyblue";
+
+ctx.fillRect(p.x, p.y, 25, 25);
 
 }
+
+// HUD gracza
+ctx.fillStyle = "white";
+ctx.fillText("Twoja pozycja: " + Math.floor(me.x) + "," + Math.floor(me.y), 10, 20);
 
 requestAnimationFrame(draw);
 }
 
+// 🚀 loop gry
+function loop(){
+update();
+requestAnimationFrame(loop);
+}
+
+loop();
 draw();
 
+window.addEventListener("resize", ()=>{
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+});
 </script>
 
 </body>
