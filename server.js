@@ -10,18 +10,21 @@ let players = {};
 
 io.on("connection", (socket) => {
 
-players[socket.id] = { x: 100, y: 100 };
+    players[socket.id] = {
+        x: 100,
+        y: 100
+    };
 
-socket.emit("init", players);
+    socket.emit("init", players);
 
-socket.on("move", (data) => {
-players[socket.id] = data;
-io.emit("players", players);
-});
+    socket.on("move", (data) => {
+        players[socket.id] = data;
+        io.emit("players", players);
+    });
 
-socket.on("disconnect", () => {
-delete players[socket.id];
-});
+    socket.on("disconnect", () => {
+        delete players[socket.id];
+    });
 
 });
 
