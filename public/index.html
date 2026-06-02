@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Multiplayer FPS</title>
+<title>2D FPS MULTI</title>
 
 <style>
 body{
@@ -14,7 +14,7 @@ font-family:Arial;
 
 canvas{
 display:block;
-background:#0f0f0f;
+background:#1a1a1a;
 }
 
 #hud{
@@ -28,12 +28,13 @@ color:white;
 
 <body>
 
-<div id="hud">MULTIPLAYER ONLINE</div>
+<div id="hud">2D MULTIPLAYER FPS</div>
 <canvas id="c"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
+
 const socket = io();
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -49,20 +50,25 @@ y: 200,
 speed: 4
 };
 
-// 🔥 odbiór graczy (TO JEST MULTIPLAYER)
-socket.on("init", (data) => {
+// 📡 odbiór
+socket.on("init", (data)=>{
 players = data;
 });
 
-socket.on("players", (data) => {
+socket.on("players", (data)=>{
 players = data;
 });
 
 // 🎮 ruch
 let keys = {};
 
-document.addEventListener("keydown", (e) => keys[e.key] = true);
-document.addEventListener("keyup", (e) => keys[e.key] = false);
+document.addEventListener("keydown", e=>{
+keys[e.key.toLowerCase()] = true;
+});
+
+document.addEventListener("keyup", e=>{
+keys[e.key.toLowerCase()] = false;
+});
 
 function update(){
 
@@ -71,27 +77,46 @@ if(keys["s"]) me.y += me.speed;
 if(keys["a"]) me.x -= me.speed;
 if(keys["d"]) me.x += me.speed;
 
-// 🔥 wysyłka do serwera
 socket.emit("move", me);
+
 }
 
-// 🎨 rysowanie graczy
+// 🔫 strzelanie
+document.addEventListener("click", ()=>{
+
+socket.emit("shoot", {
+x: me.x,
+y: me.y
+});
+
+});
+
+// 🎨 rysowanie
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
+// gracze
 for(let id in players){
 
 let p = players[id];
 
-ctx.fillStyle = "deepskyblue";
-ctx.fillRect(p.x, p.y, 25, 25);
+ctx.fillStyle = p.team;
+
+ctx.fillRect(p.x, p.y, 20, 20);
+
+// HP bar
+ctx.fillStyle = "red";
+ctx.fillRect(p.x, p.y-10, 20, 5);
+
+ctx.fillStyle = "lime";
+ctx.fillRect(p.x, p.y-10, (p.hp/100)*20, 5);
 
 }
 
-// ty (wyróżnienie)
-ctx.fillStyle = "lime";
-ctx.fillRect(me.x, me.y, 25, 25);
+// ty
+ctx.fillStyle = "yellow";
+ctx.fillRect(me.x, me.y, 20, 20);
 
 requestAnimationFrame(draw);
 }
@@ -103,6 +128,7 @@ requestAnimationFrame(loop);
 
 loop();
 draw();
+
 </script>
 
 </body>
