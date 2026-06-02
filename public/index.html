@@ -2,14 +2,14 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>2D FPS MULTI</title>
+<title>2D FPS PRO</title>
 
 <style>
 body{
 margin:0;
 overflow:hidden;
 background:#111;
-font-family:Arial;
+cursor:none;
 }
 
 canvas{
@@ -22,13 +22,14 @@ position:fixed;
 top:10px;
 left:10px;
 color:white;
+font-family:Arial;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">2D MULTIPLAYER FPS</div>
+<div id="hud">2D FPS PRO</div>
 <canvas id="c"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -43,6 +44,8 @@ canvas.width = innerWidth;
 canvas.height = innerHeight;
 
 let players = {};
+let bullets = [];
+let myId = null;
 
 let me = {
 x: 200,
@@ -50,13 +53,16 @@ y: 200,
 speed: 4
 };
 
-// 📡 odbiór
+// 📡 init
 socket.on("init", (data)=>{
-players = data;
+players = data.players;
+myId = data.id;
 });
 
-socket.on("players", (data)=>{
-players = data;
+// 📡 state
+socket.on("state", (data)=>{
+players = data.players;
+bullets = data.bullets;
 });
 
 // 🎮 ruch
@@ -78,45 +84,53 @@ if(keys["a"]) me.x -= me.speed;
 if(keys["d"]) me.x += me.speed;
 
 socket.emit("move", me);
-
 }
 
-// 🔫 strzelanie
-document.addEventListener("click", ()=>{
+// 🔫 strzelanie + mysz
+document.addEventListener("click", (e)=>{
+
+let angle = Math.atan2(
+e.clientY - canvas.height/2,
+e.clientX - canvas.width/2
+);
 
 socket.emit("shoot", {
 x: me.x,
-y: me.y
+y: me.y,
+dx: Math.cos(angle) * 8,
+dy: Math.sin(angle) * 8
 });
 
 });
 
-// 🎨 rysowanie
+// 🎨 render
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// gracze
+// bullets
+ctx.fillStyle = "yellow";
+for(let b of bullets){
+ctx.beginPath();
+ctx.arc(b.x, b.y, 4, 0, Math.PI*2);
+ctx.fill();
+}
+
+// players
 for(let id in players){
 
 let p = players[id];
 
 ctx.fillStyle = p.team;
-
 ctx.fillRect(p.x, p.y, 20, 20);
 
 // HP bar
 ctx.fillStyle = "red";
-ctx.fillRect(p.x, p.y-10, 20, 5);
+ctx.fillRect(p.x, p.y-10, 20, 4);
 
 ctx.fillStyle = "lime";
-ctx.fillRect(p.x, p.y-10, (p.hp/100)*20, 5);
-
+ctx.fillRect(p.x, p.y-10, (p.hp/100)*20, 4);
 }
-
-// ty
-ctx.fillStyle = "yellow";
-ctx.fillRect(me.x, me.y, 20, 20);
 
 requestAnimationFrame(draw);
 }
