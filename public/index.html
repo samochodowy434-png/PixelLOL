@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Multi Shooter</title>
+
+<style>
+body { margin:0; overflow:hidden; background:#111; }
+canvas { display:block; }
+#ui {
+position:fixed;
+top:10px;
+left:10px;
+color:white;
+font-family:Arial;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">Multi Shooter</div>
+<canvas id="c"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+const socket = io();
+
+let players = {};
+let me = { x: 100, y: 100, speed: 4 };
+
+document.addEventListener("keydown", (e)=>{
+if(e.key=="w") me.y -= me.speed;
+if(e.key=="s") me.y += me.speed;
+if(e.key=="a") me.x -= me.speed;
+if(e.key=="d") me.x += me.speed;
+
+socket.emit("move", me);
+});
+
+socket.on("players", (data)=>{
+players = data;
+});
+
+function draw(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+for(let id in players){
+let p = players[id];
+
+ctx.fillStyle = p.team;
+ctx.fillRect(p.x, p.y, 20, 20);
+}
+
+requestAnimationFrame(draw);
+}
+
+draw();
+
+</script>
+
+</body>
+</html>
