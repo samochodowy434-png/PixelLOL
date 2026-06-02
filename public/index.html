@@ -8,52 +8,23 @@
 body{
 margin:0;
 overflow:hidden;
-font-family:Arial;
 background:#0f1720;
+font-family:Arial;
+cursor:none;
 }
 
-/* START MENU */
-#menu{
-position:absolute;
-width:100%;
-height:100%;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-background:linear-gradient(#111,#000);
-z-index:10;
-}
+canvas{display:block;}
 
-#menu h1{
-color:white;
-font-size:60px;
-margin-bottom:20px;
-}
-
-button{
-padding:15px 40px;
-font-size:20px;
-border:none;
-cursor:pointer;
-background:#00aaff;
-color:white;
-border-radius:10px;
-}
-
-/* HUD */
 #hud{
 position:fixed;
 top:10px;
 left:10px;
 color:white;
-background:rgba(0,0,0,0.4);
+background:rgba(0,0,0,0.5);
 padding:10px;
 border-radius:8px;
-display:none;
 }
 
-/* CROSSHAIR */
 #cross{
 position:fixed;
 left:50%;
@@ -63,24 +34,15 @@ height:10px;
 border:2px solid white;
 border-radius:50%;
 transform:translate(-50%,-50%);
-display:none;
-}
-
-canvas{
-display:block;
 }
 </style>
 </head>
 
 <body>
 
-<div id="menu">
-<h1>🔥 2D FPS ONLINE</h1>
-<button onclick="startGame()">START</button>
-</div>
-
 <div id="hud">
-HP: <span id="hp">100</span>
+HP: <span id="hp">100</span><br>
+Kills: <span id="kills">0</span>
 </div>
 
 <div id="cross"></div>
@@ -100,32 +62,29 @@ canvas.height = innerHeight;
 
 let players = {};
 let myId = null;
-let gameStarted = false;
 
 let me = {
-x: 300,
-y: 300,
-speed: 4
+x:300,
+y:300,
+speed:4,
+angle:0
 };
 
-// START
-function startGame(){
-document.getElementById("menu").style.display = "none";
-document.getElementById("hud").style.display = "block";
-document.getElementById("cross").style.display = "block";
-gameStarted = true;
-}
-
 // SOCKET
-socket.on("init", (id)=>{
+socket.on("init",(id)=>{
 myId = id;
 });
 
-socket.on("players", (data)=>{
+socket.on("players",(data)=>{
 players = data;
+document.getElementById("kills").innerText =
+players[myId]?.kills || 0;
+
+document.getElementById("hp").innerText =
+players[myId]?.hp || 100;
 });
 
-// INPUT
+// MOVE
 let keys = {};
 
 document.addEventListener("keydown",(e)=>{
@@ -136,10 +95,7 @@ document.addEventListener("keyup",(e)=>{
 keys[e.key.toLowerCase()] = false;
 });
 
-// MOVE
 function update(){
-
-if(!gameStarted) return;
 
 if(keys["w"]) me.y -= me.speed;
 if(keys["s"]) me.y += me.speed;
@@ -149,83 +105,67 @@ if(keys["d"]) me.x += me.speed;
 socket.emit("move", me);
 }
 
-// SHOOT
-document.addEventListener("click", ()=>{
+// 🖱️ MYSZ = OBROT KAMERY
+document.addEventListener("mousemove",(e)=>{
 
-if(!gameStarted) return;
+me.angle = Math.atan2(
+e.clientY - canvas.height/2,
+e.clientX - canvas.width/2
+);
 
-socket.emit("shoot", {
-x: me.x,
-y: me.y
 });
+
+// 🔫 STRZELANIE
+document.addEventListener("click",()=>{
+
+socket.emit("shoot",{
+x:me.x,
+y:me.y
 });
 
-// DRAW MAP (ładniejsze tło)
-function drawMap(){
-
-ctx.fillStyle = "#1b2a34";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-
-// grid
-ctx.strokeStyle = "rgba(255,255,255,0.05)";
-for(let x=0;x<canvas.width;x+=40){
-ctx.beginPath();
-ctx.moveTo(x,0);
-ctx.lineTo(x,canvas.height);
-ctx.stroke();
-}
-
-for(let y=0;y<canvas.height;y+=40){
-ctx.beginPath();
-ctx.moveTo(0,y);
-ctx.lineTo(canvas.width,y);
-ctx.stroke();
-}
-}
+});
 
 // DRAW
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-if(!gameStarted) return;
-
-drawMap();
-
 // players
 for(let id in players){
 
 let p = players[id];
 
-ctx.fillStyle = p.team === "red" ? "#ff3b3b" : "#3b8bff";
+ctx.fillStyle = p.team === "red" ? "#ff4444" : "#4488ff";
 
 ctx.beginPath();
-ctx.arc(p.x, p.y, 12, 0, Math.PI*2);
+ctx.arc(p.x,p.y,12,0,Math.PI*2);
 ctx.fill();
 
-// HP bar
-ctx.fillStyle = "red";
-ctx.fillRect(p.x-12, p.y-18, 24, 4);
+// HP BAR
+ctx.fillStyle="red";
+ctx.fillRect(p.x-12,p.y-18,24,4);
 
-ctx.fillStyle = "lime";
-ctx.fillRect(p.x-12, p.y-18, (p.hp/100)*24, 4);
+ctx.fillStyle="lime";
+ctx.fillRect(p.x-12,p.y-18,(p.hp/100)*24,4);
 }
 
-// player (ty)
-ctx.fillStyle = "yellow";
+// TY
+ctx.fillStyle="yellow";
 ctx.beginPath();
-ctx.arc(me.x, me.y, 12, 0, Math.PI*2);
+ctx.arc(me.x,me.y,12,0,Math.PI*2);
 ctx.fill();
+
+requestAnimationFrame(draw);
 }
 
 // LOOP
 function loop(){
 update();
-draw();
 requestAnimationFrame(loop);
 }
 
 loop();
+draw();
 
 </script>
 
