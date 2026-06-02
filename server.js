@@ -7,11 +7,14 @@ app.use(express.static("public"));
 
 let players = {};
 
-let blocks = [
-  {x:0,y:0,z:0,type:0},
-  {x:2,y:0,z:0,type:1},
-  {x:4,y:0,z:0,type:2}
-];
+let world = [];
+
+// STARTOWA PŁASKA MAPA (ZIEMIA)
+for(let x=-20;x<20;x++){
+for(let z=-20;z<20;z++){
+world.push({x, y:0, z, type:2});
+}
+}
 
 io.on("connection",(socket)=>{
 
@@ -22,33 +25,28 @@ z:0,
 rotY:0
 };
 
-socket.emit("init",{id:socket.id,players,blocks});
+socket.emit("init",{id:socket.id, world});
 
-// MOVE
 socket.on("move",(p)=>{
-if(!players[socket.id]) return;
+let pl = players[socket.id];
+if(!pl) return;
 
-players[socket.id].x = p.x;
-players[socket.id].y = p.y;
-players[socket.id].z = p.z;
-players[socket.id].rotY = p.rotY;
+pl.x = p.x;
+pl.y = p.y;
+pl.z = p.z;
+pl.rotY = p.rotY;
 });
 
-// ADD BLOCK
 socket.on("addBlock",(b)=>{
-blocks.push(b);
-io.emit("world",blocks);
+world.push(b);
+io.emit("world",world);
 });
 
-// REMOVE BLOCK
 socket.on("removeBlock",(index)=>{
-if(blocks[index]){
-blocks.splice(index,1);
-io.emit("world",blocks);
-}
+world.splice(index,1);
+io.emit("world",world);
 });
 
-// UPDATE PLAYERS
 setInterval(()=>{
 io.emit("players",players);
 },50);
