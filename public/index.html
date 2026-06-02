@@ -2,26 +2,24 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>2D PRO CITY FPS</title>
+<title>2D CITY FPS PRO</title>
 
 <style>
 body{
 margin:0;
 overflow:hidden;
-background:#222;
+background:#1a1f25;
 font-family:Arial;
 }
 
-canvas{
-display:block;
-}
+canvas{display:block;}
 
 #hud{
 position:fixed;
 top:10px;
 left:10px;
 color:white;
-background:rgba(0,0,0,0.4);
+background:rgba(0,0,0,0.5);
 padding:10px;
 border-radius:8px;
 }
@@ -30,8 +28,8 @@ border-radius:8px;
 position:fixed;
 left:50%;
 top:50%;
-width:8px;
-height:8px;
+width:10px;
+height:10px;
 border:2px solid white;
 border-radius:50%;
 transform:translate(-50%,-50%);
@@ -41,7 +39,7 @@ transform:translate(-50%,-50%);
 
 <body>
 
-<div id="hud">🏙️ 2D PRO FPS CITY</div>
+<div id="hud">🏙️ CITY FPS PRO</div>
 <div id="cross"></div>
 
 <canvas id="c"></canvas>
@@ -58,107 +56,132 @@ canvas.width = innerWidth;
 canvas.height = innerHeight;
 
 let players = {};
-let myId = null;
+let cars = [];
 
-// 🧍 gracz
 let me = {
-x: 200,
-y: 200,
-speed: 4
+x:200,
+y:200,
+speed:4,
+weapon:"pistol"
 };
 
-// 📡 sync
-socket.on("init",(id)=>{
-myId = id;
+// sync
+socket.on("players",d=>players=d);
+socket.on("cars",d=>cars=d);
+
+socket.on("init",()=>{});
+
+// MAPA
+function drawMap(){
+
+// ulice
+ctx.fillStyle="#555";
+ctx.fillRect(0,250,canvas.width,120);
+ctx.fillRect(400,0,120,canvas.height);
+
+// budynki
+ctx.fillStyle="#2b2b2b";
+ctx.fillRect(100,100,100,100);
+ctx.fillRect(600,150,120,120);
+ctx.fillRect(800,400,150,150);
+}
+
+// LUDZIE (ładniejsi)
+function drawPlayers(){
+
+for(let id in players){
+
+let p=players[id];
+
+ctx.fillStyle = p.hp>50 ? "#4b8bff" : "#ff4b4b";
+
+ctx.beginPath();
+ctx.arc(p.x,p.y,10,0,Math.PI*2);
+ctx.fill();
+
+// HP
+ctx.fillStyle="red";
+ctx.fillRect(p.x-10,p.y-18,20,4);
+ctx.fillStyle="lime";
+ctx.fillRect(p.x-10,p.y-18,(p.hp/100)*20,4);
+}
+}
+
+// AUTA
+function drawCars(){
+
+cars.forEach(c=>{
+
+ctx.fillStyle=c.color;
+ctx.fillRect(c.x,c.y,40,20);
+
+ctx.fillStyle="black";
+ctx.fillText("X",c.x+12,c.y+15);
+
 });
+}
 
-socket.on("players",(data)=>{
-players = data;
-});
+// RUCH
+let keys={};
 
-// 🎮 ruch
-let keys = {};
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
-document.addEventListener("keydown",(e)=>{
-keys[e.key.toLowerCase()] = true;
-});
-
-document.addEventListener("keyup",(e)=>{
-keys[e.key.toLowerCase()] = false;
-});
-
-// 🔁 ruch
 function update(){
 
-if(keys["w"]) me.y -= me.speed;
-if(keys["s"]) me.y += me.speed;
-if(keys["a"]) me.x -= me.speed;
-if(keys["d"]) me.x += me.speed;
+if(keys["w"]) me.y-=me.speed;
+if(keys["s"]) me.y+=me.speed;
+if(keys["a"]) me.x-=me.speed;
+if(keys["d"]) me.x+=me.speed;
 
 socket.emit("move",me);
 }
 
-// 🔫 strzelanie (pistolet)
+// 🔫 STRZELANIE (NAPRAWIONE)
 document.addEventListener("click",()=>{
 
 socket.emit("shoot",{
 x:me.x,
-y:me.y
+y:me.y,
+damage:25,
+range:80
 });
 
 });
 
-// 🏙️ MAPA (ulice + domy)
-function drawMap(){
+// 🚗 WSIADANIE DO AUTA
+document.addEventListener("keydown",(e)=>{
 
-// droga
-ctx.fillStyle = "#555";
-ctx.fillRect(0,200,canvas.width,100);
-ctx.fillRect(300,0,100,canvas.height);
+if(e.key.toLowerCase()==="x"){
 
-// budynki
-ctx.fillStyle = "#2b2b2b";
+cars.forEach(c=>{
+let dx=me.x-c.x;
+let dy=me.y-c.y;
+let dist=Math.sqrt(dx*dx+dy*dy);
 
-ctx.fillRect(100,100,80,80);
-ctx.fillRect(600,120,120,120);
-ctx.fillRect(500,400,100,100);
+if(dist<40){
+socket.emit("enterCar",c.id);
+}
+
+});
 
 }
 
-// 🎨 rysowanie
+});
+
+// RYSOWANIE
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// mapa
 drawMap();
-
-// gracze
-for(let id in players){
-
-let p = players[id];
-
-ctx.fillStyle = p.team==="red"?"#ff4b4b":"#4b8bff";
-
-ctx.fillRect(p.x-10,p.y-10,20,20);
-
-// HP
-ctx.fillStyle="red";
-ctx.fillRect(p.x-10,p.y-18,20,3);
-
-ctx.fillStyle="lime";
-ctx.fillRect(p.x-10,p.y-18,(p.hp/100)*20,3);
-
-}
-
-// ty
-ctx.fillStyle="yellow";
-ctx.fillRect(me.x-10,me.y-10,20,20);
+drawCars();
+drawPlayers();
 
 requestAnimationFrame(draw);
 }
 
-// loop
+// LOOP
 function loop(){
 update();
 requestAnimationFrame(loop);
