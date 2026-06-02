@@ -2,19 +2,18 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>2D FPS MULTI STABLE</title>
+<title>2D PRO CITY FPS</title>
 
 <style>
 body{
 margin:0;
 overflow:hidden;
-background:#111;
+background:#222;
 font-family:Arial;
 }
 
 canvas{
 display:block;
-background:#1a1a1a;
 }
 
 #hud{
@@ -22,10 +21,9 @@ position:fixed;
 top:10px;
 left:10px;
 color:white;
-font-size:14px;
 background:rgba(0,0,0,0.4);
-padding:8px;
-border-radius:6px;
+padding:10px;
+border-radius:8px;
 }
 
 #cross{
@@ -37,14 +35,13 @@ height:8px;
 border:2px solid white;
 border-radius:50%;
 transform:translate(-50%,-50%);
-pointer-events:none;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">2D FPS STABLE</div>
+<div id="hud">🏙️ 2D PRO FPS CITY</div>
 <div id="cross"></div>
 
 <canvas id="c"></canvas>
@@ -63,16 +60,6 @@ canvas.height = innerHeight;
 let players = {};
 let myId = null;
 
-// 📡 init
-socket.on("init",(id)=>{
-myId = id;
-});
-
-// 📡 sync
-socket.on("players",(data)=>{
-players = data;
-});
-
 // 🧍 gracz
 let me = {
 x: 200,
@@ -80,7 +67,16 @@ y: 200,
 speed: 4
 };
 
-// 🎮 input
+// 📡 sync
+socket.on("init",(id)=>{
+myId = id;
+});
+
+socket.on("players",(data)=>{
+players = data;
+});
+
+// 🎮 ruch
 let keys = {};
 
 document.addEventListener("keydown",(e)=>{
@@ -102,7 +98,7 @@ if(keys["d"]) me.x += me.speed;
 socket.emit("move",me);
 }
 
-// 🔫 strzał
+// 🔫 strzelanie (pistolet)
 document.addEventListener("click",()=>{
 
 socket.emit("shoot",{
@@ -112,30 +108,51 @@ y:me.y
 
 });
 
+// 🏙️ MAPA (ulice + domy)
+function drawMap(){
+
+// droga
+ctx.fillStyle = "#555";
+ctx.fillRect(0,200,canvas.width,100);
+ctx.fillRect(300,0,100,canvas.height);
+
+// budynki
+ctx.fillStyle = "#2b2b2b";
+
+ctx.fillRect(100,100,80,80);
+ctx.fillRect(600,120,120,120);
+ctx.fillRect(500,400,100,100);
+
+}
+
 // 🎨 rysowanie
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
+
+// mapa
+drawMap();
 
 // gracze
 for(let id in players){
 
 let p = players[id];
 
-ctx.fillStyle = (p.team === "red") ? "#ff4444" : "#4488ff";
+ctx.fillStyle = p.team==="red"?"#ff4b4b":"#4b8bff";
 
 ctx.fillRect(p.x-10,p.y-10,20,20);
 
 // HP
-ctx.fillStyle = "red";
+ctx.fillStyle="red";
 ctx.fillRect(p.x-10,p.y-18,20,3);
 
-ctx.fillStyle = "lime";
+ctx.fillStyle="lime";
 ctx.fillRect(p.x-10,p.y-18,(p.hp/100)*20,3);
+
 }
 
 // ty
-ctx.fillStyle = "yellow";
+ctx.fillStyle="yellow";
 ctx.fillRect(me.x-10,me.y-10,20,20);
 
 requestAnimationFrame(draw);
