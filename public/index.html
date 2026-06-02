@@ -2,37 +2,19 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>3D FPS SIMPLE PRO</title>
+<title>Minecraft 3D Multiplayer</title>
 
 <style>
-body{
-margin:0;
-overflow:hidden;
-background:#000;
-cursor:none;
-font-family:Arial;
-}
-
+body{margin:0;overflow:hidden;}
 canvas{display:block;}
-
 #hud{
 position:fixed;
 top:10px;
 left:10px;
 color:white;
+font-family:Arial;
 background:rgba(0,0,0,0.5);
 padding:10px;
-}
-
-#cross{
-position:fixed;
-left:50%;
-top:50%;
-width:8px;
-height:8px;
-border:2px solid white;
-transform:translate(-50%,-50%);
-border-radius:50%;
 }
 </style>
 </head>
@@ -40,186 +22,201 @@ border-radius:50%;
 <body>
 
 <div id="hud">
-HP: <span id="hp">100</span> |
-Kills: <span id="kills">0</span>
+Minecraft 3D MP<br>
+WASD + MYSZ<br>
+LPM = blok | PPM = usuwanie
 </div>
 
-<div id="cross"></div>
-
-<canvas id="c"></canvas>
-
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
 
 const socket = io();
-const c = document.getElementById("c");
-const ctx = c.getContext("2d");
 
-c.width = innerWidth;
-c.height = innerHeight;
+// 🌍 SCENA
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
 
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// 🌱 LIGHT
+const light = new THREE.AmbientLight(0xffffff,1);
+scene.add(light);
+
+// 🧱 BLOCKS
+let blocks = [];
+let worldBlocks = [];
+
+// 👤 PLAYERS
 let players = {};
-let myId = null;
 
 let me = {
-x:100,
-y:100,
-angle:0,
-speed:2
+x:0,
+y:2,
+z:0,
+rotY:0
 };
 
-// MAPA 3D (ściany)
-const walls = [
-{ x:0,y:0,w:500,h:20 },
-{ x:0,y:0,w:20,h:500 },
-{ x:480,y:0,w:20,h:500 },
-{ x:0,y:480,w:500,h:20 },
+// TYPES
+const colors = [0x8B4513,0x888888,0x00ff00];
+let currentBlock = 0;
 
-{ x:200,y:200,w:100,h:20 },
-{ x:300,y:100,w:20,h:120 }
-];
+// INIT
+socket.on("init",(data)=>{
+players = data.players;
+worldBlocks = data.blocks;
 
-// SOCKET
-socket.on("init",(id)=> myId=id );
-
-socket.on("players",(data)=>{
-players=data;
-
-document.getElementById("hp").innerText =
-players[myId]?.hp || 100;
-
-document.getElementById("kills").innerText =
-players[myId]?.kills || 0;
+worldBlocks.forEach(addBlockMesh);
 });
 
-// MOVEMENT
+// UPDATE WORLD
+socket.on("worldUpdate",(data)=>{
+worldBlocks = data;
+refreshBlocks();
+});
+
+socket.on("playersUpdate",(data)=>{
+players = data;
+});
+
+// 🧱 CREATE BLOCK
+function addBlockMesh(b){
+const geo = new THREE.BoxGeometry(1,1,1);
+const mat = new THREE.MeshBasicMaterial({color:colors[b.type]});
+const mesh = new THREE.Mesh(geo,mat);
+
+mesh.position.set(b.x,b.y,b.z);
+scene.add(mesh);
+blocks.push(mesh);
+}
+
+// RESET BLOCKS
+function refreshBlocks(){
+blocks.forEach(b=>scene.remove(b));
+blocks=[];
+worldBlocks.forEach(addBlockMesh);
+}
+
+// 🎮 INPUT
 let keys={};
 
-document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
-document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+document.addEventListener("keydown",(e)=>{
+keys[e.key.toLowerCase()] = true;
 
-// MYSZ = OBROT (WAŻNE)
-document.addEventListener("mousemove",(e)=>{
-me.angle = Math.atan2(
-e.clientY - c.height/2,
-e.clientX - c.width/2
-);
+if(e.key==="1") currentBlock=0;
+if(e.key==="2") currentBlock=1;
+if(e.key==="3") currentBlock=2;
 });
 
-// KOLIZJE
-function collide(nx,ny){
-for(let w of walls){
-if(nx>w.x && nx<w.x+w.w && ny>w.y && ny<w.y+w.h){
+document.addEventListener("keyup",(e)=>{
+keys[e.key.toLowerCase()] = false;
+});
+
+// 🖱️ MOUSE
+document.addEventListener("mousemove",(e)=>{
+me.rotY -= e.movementX * 0.002;
+camera.rotation.y = me.rotY;
+});
+
+// 🧱 COLLISION
+function collide(x,z){
+
+for(let b of worldBlocks){
+if(
+Math.abs(x-b.x)<0.6 &&
+Math.abs(z-b.z)<0.6
+){
 return true;
 }
 }
 return false;
 }
 
-// MOVE
+// 🚶 MOVE
 function update(){
 
-let nx=me.x;
-let ny=me.y;
+let speed = 0.08;
+
+let nx = me.x;
+let nz = me.z;
 
 if(keys["w"]){
-nx += Math.cos(me.angle)*me.speed;
-ny += Math.sin(me.angle)*me.speed;
+nx += Math.sin(me.rotY)*speed;
+nz += Math.cos(me.rotY)*speed;
 }
 if(keys["s"]){
-nx -= Math.cos(me.angle)*me.speed;
-ny -= Math.sin(me.angle)*me.speed;
+nx -= Math.sin(me.rotY)*speed;
+nz -= Math.cos(me.rotY)*speed;
 }
 if(keys["a"]){
-nx += Math.cos(me.angle-Math.PI/2)*me.speed;
-ny += Math.sin(me.angle-Math.PI/2)*me.speed;
+nx += Math.sin(me.rotY-Math.PI/2)*speed;
+nz += Math.cos(me.rotY-Math.PI/2)*speed;
 }
 if(keys["d"]){
-nx += Math.cos(me.angle+Math.PI/2)*me.speed;
-ny += Math.sin(me.angle+Math.PI/2)*me.speed;
+nx += Math.sin(me.rotY+Math.PI/2)*speed;
+nz += Math.cos(me.rotY+Math.PI/2)*speed;
 }
 
-if(!collide(nx,ny)){
-me.x=nx;
-me.y=ny;
+// ✔ KOLIZJE
+if(!collide(nx,nz)){
+me.x = nx;
+me.z = nz;
 }
+
+camera.position.set(me.x,me.y,me.z);
 
 socket.emit("move",me);
 }
 
-// STRZELANIE (REAL FIX)
+// 🧱 PLACE BLOCK
 document.addEventListener("click",()=>{
+let b = {
+x:Math.round(me.x + Math.sin(me.rotY)*2),
+y:0,
+z:Math.round(me.z + Math.cos(me.rotY)*2),
+type:currentBlock
+};
 
-socket.emit("shoot",{
-x:me.x,
-y:me.y
+socket.emit("addBlock",b);
 });
+
+// ❌ REMOVE BLOCK
+document.addEventListener("contextmenu",(e)=>{
+e.preventDefault();
+
+socket.emit("removeBlock",worldBlocks.length-1);
 });
 
-// RENDER 3D (raycast fake)
-function draw3D(){
-
-ctx.fillStyle="#1a1a1a";
-ctx.fillRect(0,0,c.width,c.height);
-
-for(let i=0;i<100;i++){
-
-let rayAngle = me.angle - 0.5 + (i/100);
-
-let rx = me.x;
-let ry = me.y;
-
-for(let j=0;j<200;j++){
-
-rx += Math.cos(rayAngle)*2;
-ry += Math.sin(rayAngle)*2;
-
-for(let w of walls){
-
-if(rx>w.x && rx<w.x+w.w && ry>w.y && ry<w.y+w.h){
-
-let dist = Math.hypot(rx-me.x, ry-me.y);
-
-let h = 500 / dist;
-
-ctx.fillStyle = `rgb(${200-dist},${200-dist},255)`;
-
-ctx.fillRect(i*10, c.height/2 - h/2, 10, h);
-
-j=200;
-break;
-}
-
-}
-
-}
-}
-
-}
-
-// PLAYERS (fasolki 3D overlay)
+// 👤 DRAW PLAYERS
 function drawPlayers(){
 
 for(let id in players){
 
-let p=players[id];
+let p = players[id];
 
-ctx.fillStyle=p.hp>50?"red":"darkred";
+const geo = new THREE.SphereGeometry(0.3,8,8);
+const mat = new THREE.MeshBasicMaterial({color:0xff0000});
+const mesh = new THREE.Mesh(geo,mat);
 
-ctx.beginPath();
-ctx.arc(p.x,p.y,8,0,Math.PI*2);
-ctx.fill();
+mesh.position.set(p.x,p.y,p.z);
+scene.add(mesh);
 
 }
+
 }
 
 // LOOP
 function loop(){
-update();
-draw3D();
-drawPlayers();
 requestAnimationFrame(loop);
+
+update();
+drawPlayers();
+
+renderer.render(scene,camera);
 }
 
 loop();
