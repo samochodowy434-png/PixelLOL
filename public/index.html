@@ -2,21 +2,11 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>2D FPS PRO</title>
+<title>3D FPS MULTI</title>
 
 <style>
-body{
-margin:0;
-overflow:hidden;
-background:#111;
-cursor:none;
-}
-
-canvas{
-display:block;
-background:#1a1a1a;
-}
-
+body { margin:0; overflow:hidden; background:black; }
+canvas { display:block; }
 #hud{
 position:fixed;
 top:10px;
@@ -29,7 +19,7 @@ font-family:Arial;
 
 <body>
 
-<div id="hud">2D FPS PRO</div>
+<div id="hud">3D FPS MULTIPLAYER</div>
 <canvas id="c"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -43,39 +33,42 @@ const ctx = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
+let id = null;
 let players = {};
-let bullets = [];
-let myId = null;
+
+socket.on("init", (myId)=>{
+id = myId;
+});
+
+socket.on("players", (data)=>{
+players = data;
+});
+
+// 🧱 MAPA (ściany)
+const walls = [
+{ x:200, y:200, w:200, h:20 },
+{ x:500, y:300, w:20, h:200 },
+{ x:300, y:500, w:300, h:20 }
+];
 
 let me = {
-x: 200,
-y: 200,
-speed: 4
+x: 100,
+y: 100,
+angle: 0,
+speed: 3
 };
 
-// 📡 init
-socket.on("init", (data)=>{
-players = data.players;
-myId = data.id;
-});
-
-// 📡 state
-socket.on("state", (data)=>{
-players = data.players;
-bullets = data.bullets;
-});
-
-// 🎮 ruch
 let keys = {};
 
-document.addEventListener("keydown", e=>{
+document.addEventListener("keydown",(e)=>{
 keys[e.key.toLowerCase()] = true;
 });
 
-document.addEventListener("keyup", e=>{
+document.addEventListener("keyup",(e)=>{
 keys[e.key.toLowerCase()] = false;
 });
 
+// 🎮 ruch
 function update(){
 
 if(keys["w"]) me.y -= me.speed;
@@ -83,65 +76,95 @@ if(keys["s"]) me.y += me.speed;
 if(keys["a"]) me.x -= me.speed;
 if(keys["d"]) me.x += me.speed;
 
-socket.emit("move", me);
+// wysyłka
+socket.emit("state", me);
 }
 
-// 🔫 strzelanie + mysz
-document.addEventListener("click", (e)=>{
-
-let angle = Math.atan2(
-e.clientY - canvas.height/2,
-e.clientX - canvas.width/2
-);
-
-socket.emit("shoot", {
-x: me.x,
-y: me.y,
-dx: Math.cos(angle) * 8,
-dy: Math.sin(angle) * 8
+// 🧭 mysz = obrót
+document.addEventListener("mousemove",(e)=>{
+me.angle = e.clientX / innerWidth * Math.PI * 2;
 });
 
+// 🔫 strzał
+document.addEventListener("click",()=>{
+socket.emit("shoot");
 });
 
-// 🎨 render
-function draw(){
+// 🎨 RAYCAST 3D (pseudo)
+function draw3D(){
 
-ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle = "#111";
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-// bullets
-ctx.fillStyle = "yellow";
-for(let b of bullets){
-ctx.beginPath();
-ctx.arc(b.x, b.y, 4, 0, Math.PI*2);
-ctx.fill();
+let fov = 60;
+let rays = 120;
+
+for(let i=0;i<rays;i++){
+
+let rayAngle = me.angle - (fov/2) + (i/rays)*fov;
+
+let dist = 0;
+let hit = false;
+
+while(!hit && dist < 300){
+
+dist += 2;
+
+let rx = me.x + Math.cos(rayAngle)*dist;
+let ry = me.y + Math.sin(rayAngle)*dist;
+
+for(let w of walls){
+
+if(rx>w.x && rx<w.x+w.w && ry>w.y && ry<w.y+w.h){
+hit = true;
+break;
 }
 
-// players
-for(let id in players){
+}
 
-let p = players[id];
+}
+
+let shade = 255 - dist;
+
+ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+
+let h = 500 / (dist+1);
+
+ctx.fillRect(i*(canvas.width/rays), canvas.height/2 - h/2, canvas.width/rays+1, h);
+}
+
+}
+
+// 🧍 gracze
+function drawPlayers(){
+
+for(let i in players){
+
+let p = players[i];
+
+if(i === id) continue;
 
 ctx.fillStyle = p.team;
-ctx.fillRect(p.x, p.y, 20, 20);
 
-// HP bar
-ctx.fillStyle = "red";
-ctx.fillRect(p.x, p.y-10, 20, 4);
+ctx.fillRect(p.x/5, p.y/5, 10, 10);
 
-ctx.fillStyle = "lime";
-ctx.fillRect(p.x, p.y-10, (p.hp/100)*20, 4);
 }
 
-requestAnimationFrame(draw);
 }
 
+// 🔁 loop
 function loop(){
+
 update();
+
+draw3D();
+
+drawPlayers();
+
 requestAnimationFrame(loop);
 }
 
 loop();
-draw();
 
 </script>
 
