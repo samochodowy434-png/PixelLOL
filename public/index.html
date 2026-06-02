@@ -2,14 +2,13 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>PixelLOL Multiplayer</title>
+<title>Multiplayer FPS</title>
 
 <style>
 body{
 margin:0;
 overflow:hidden;
 background:#111;
-cursor:none;
 font-family:Arial;
 }
 
@@ -23,32 +22,19 @@ position:fixed;
 top:10px;
 left:10px;
 color:white;
-font-size:18px;
-z-index:10;
-}
-
-#info{
-position:fixed;
-top:40px;
-left:10px;
-color:#aaa;
-font-size:14px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">🟦 MULTIPLAYER FPS</div>
-<div id="info">WASD = ruch</div>
-
+<div id="hud">MULTIPLAYER ONLINE</div>
 <canvas id="c"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
 const socket = io();
-
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
@@ -57,14 +43,13 @@ canvas.height = innerHeight;
 
 let players = {};
 
-// 🧍 lokalny gracz
 let me = {
-x: Math.random() * 500,
-y: Math.random() * 500,
+x: 200,
+y: 200,
 speed: 4
 };
 
-// 📡 odbiór graczy
+// 🔥 odbiór graczy (TO JEST MULTIPLAYER)
 socket.on("init", (data) => {
 players = data;
 });
@@ -73,54 +58,44 @@ socket.on("players", (data) => {
 players = data;
 });
 
-// 🎮 ruch WASD
+// 🎮 ruch
 let keys = {};
 
-document.addEventListener("keydown", (e) => {
-keys[e.key.toLowerCase()] = true;
-});
+document.addEventListener("keydown", (e) => keys[e.key] = true);
+document.addEventListener("keyup", (e) => keys[e.key] = false);
 
-document.addEventListener("keyup", (e) => {
-keys[e.key.toLowerCase()] = false;
-});
-
-// 🔁 update ruchu
-function update() {
+function update(){
 
 if(keys["w"]) me.y -= me.speed;
 if(keys["s"]) me.y += me.speed;
 if(keys["a"]) me.x -= me.speed;
 if(keys["d"]) me.x += me.speed;
 
-// wysyłanie do serwera
+// 🔥 wysyłka do serwera
 socket.emit("move", me);
-
 }
 
-// 🎨 rysowanie
-function draw() {
+// 🎨 rysowanie graczy
+function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// gracze
 for(let id in players){
 
 let p = players[id];
 
-ctx.fillStyle = (id === socket.id) ? "lime" : "deepskyblue";
-
+ctx.fillStyle = "deepskyblue";
 ctx.fillRect(p.x, p.y, 25, 25);
 
 }
 
-// HUD gracza
-ctx.fillStyle = "white";
-ctx.fillText("Twoja pozycja: " + Math.floor(me.x) + "," + Math.floor(me.y), 10, 20);
+// ty (wyróżnienie)
+ctx.fillStyle = "lime";
+ctx.fillRect(me.x, me.y, 25, 25);
 
 requestAnimationFrame(draw);
 }
 
-// 🚀 loop gry
 function loop(){
 update();
 requestAnimationFrame(loop);
@@ -128,11 +103,6 @@ requestAnimationFrame(loop);
 
 loop();
 draw();
-
-window.addEventListener("resize", ()=>{
-canvas.width = innerWidth;
-canvas.height = innerHeight;
-});
 </script>
 
 </body>
