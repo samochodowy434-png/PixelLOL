@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Minecraft 3D PRO</title>
+<title>Flat Minecraft 3D</title>
 
 <style>
 body{margin:0;overflow:hidden;}
@@ -23,7 +23,7 @@ font-family:Arial;
 <body>
 
 <div id="hud">
-Minecraft 3D PRO<br>
+FLAT MINECRAFT 3D<br>
 WASD + MYSZ<br>
 LPM = blok | PPM = niszcz
 </div>
@@ -40,6 +40,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -48,8 +49,8 @@ document.body.appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffffff,1));
 
 // WORLD
-let blocks = [];
 let world = [];
+let meshes = [];
 
 // PLAYERS
 let players = {};
@@ -63,18 +64,17 @@ rotY:0,
 speed:0.08
 };
 
-// BLOCK COLORS
+// COLORS
 const colors = [0x8B4513,0x777777,0x00ff00];
 let currentBlock = 0;
 
 // INIT
 socket.on("init",(data)=>{
-players = data.players;
-world = data.blocks;
+world = data.world;
 drawWorld();
 });
 
-// PLAYERS UPDATE
+// PLAYERS
 socket.on("players",(p)=>{
 players = p;
 });
@@ -86,22 +86,22 @@ drawWorld();
 });
 
 // CREATE BLOCK
-function createBlock(b){
+function addBlock(b){
 const geo = new THREE.BoxGeometry(1,1,1);
 const mat = new THREE.MeshBasicMaterial({color:colors[b.type]});
 const mesh = new THREE.Mesh(geo,mat);
 
 mesh.position.set(b.x,b.y,b.z);
 scene.add(mesh);
-blocks.push(mesh);
+meshes.push(mesh);
 }
 
 // REDRAW WORLD
 function drawWorld(){
-blocks.forEach(b=>scene.remove(b));
-blocks=[];
+meshes.forEach(m=>scene.remove(m));
+meshes=[];
 
-world.forEach(createBlock);
+world.forEach(addBlock);
 }
 
 // INPUT
@@ -125,20 +125,21 @@ me.rotY -= e.movementX * 0.002;
 camera.rotation.y = me.rotY;
 });
 
-// COLLISION
-function collides(x,z){
+// KOLIZJE (FLAT WORLD)
+function collide(x,z){
+
 for(let b of world){
-if(
-Math.abs(x-b.x)<0.6 &&
-Math.abs(z-b.z)<0.6
-){
+if(b.type !== 2){ // ziemia nie blokuje
+if(Math.abs(x-b.x)<0.5 && Math.abs(z-b.z)<0.5){
 return true;
 }
 }
+}
+
 return false;
 }
 
-// MOVE (MC STYLE)
+// MOVE
 function update(){
 
 let nx = me.x;
@@ -161,8 +162,7 @@ nx += Math.sin(me.rotY+Math.PI/2)*me.speed;
 nz += Math.cos(me.rotY+Math.PI/2)*me.speed;
 }
 
-// ✔ KOLIZJE JAK MC
-if(!collides(nx,nz)){
+if(!collide(nx,nz)){
 me.x = nx;
 me.z = nz;
 }
@@ -172,48 +172,42 @@ camera.position.set(me.x,me.y,me.z);
 socket.emit("move",me);
 }
 
-// 🧱 STAWIANIE BLOKÓW (MC STYLE)
+// 🧱 STAWIANIE
 document.addEventListener("click",()=>{
-let b = {
+world.push({
 x:Math.round(me.x + Math.sin(me.rotY)),
-y:0,
+y:1,
 z:Math.round(me.z + Math.cos(me.rotY)),
 type:currentBlock
-};
-
-socket.emit("addBlock",b);
 });
 
-// ❌ NISZCZENIE BLOKÓW (NAJBLIŻSZY)
+socket.emit("addBlock",world[world.length-1]);
+});
+
+// ❌ NISZCZENIE
 document.addEventListener("contextmenu",(e)=>{
 e.preventDefault();
 
-let bestIndex = -1;
-let bestDist = 999;
+let best = -1;
+let dist = 999;
 
 world.forEach((b,i)=>{
-let dx = b.x - me.x;
-let dz = b.z - me.z;
-
-let d = Math.sqrt(dx*dx+dz*dz);
-
-if(d < bestDist && d < 3){
-bestDist = d;
-bestIndex = i;
+let d = Math.hypot(b.x-me.x, b.z-me.z);
+if(d < 3 && d < dist){
+dist = d;
+best = i;
 }
 });
 
-if(bestIndex !== -1){
-socket.emit("removeBlock",bestIndex);
+if(best !== -1){
+socket.emit("removeBlock",best);
 }
 });
 
 // LOOP
 function loop(){
 requestAnimationFrame(loop);
-
 update();
-
 renderer.render(scene,camera);
 }
 
