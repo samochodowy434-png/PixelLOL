@@ -2,24 +2,65 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>3D FPS MULTI</title>
+<title>2D FPS PRO UPGRADE</title>
 
 <style>
-body { margin:0; overflow:hidden; background:black; }
-canvas { display:block; }
+body{
+margin:0;
+overflow:hidden;
+background:#0b0f14;
+cursor:none;
+font-family:Arial;
+}
+
+canvas{
+display:block;
+}
+
+/* HUD */
 #hud{
 position:fixed;
 top:10px;
 left:10px;
 color:white;
-font-family:Arial;
+font-size:14px;
+background:rgba(0,0,0,0.4);
+padding:10px;
+border-radius:8px;
+}
+
+/* celownik */
+#crosshair{
+position:fixed;
+left:50%;
+top:50%;
+width:10px;
+height:10px;
+border:2px solid white;
+border-radius:50%;
+transform:translate(-50%,-50%);
+pointer-events:none;
+}
+
+/* mini radar */
+#radar{
+position:fixed;
+bottom:10px;
+right:10px;
+width:120px;
+height:120px;
+background:rgba(0,0,0,0.4);
+border-radius:10px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">3D FPS MULTIPLAYER</div>
+<div id="hud">2D FPS PRO 🔫</div>
+<div id="crosshair"></div>
+<div id="radar"></div>
+
 <canvas id="c"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -33,31 +74,28 @@ const ctx = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-let id = null;
+// 🔥 gracze
 let players = {};
+let myId = null;
 
-socket.on("init", (myId)=>{
-id = myId;
+// 📡 sync
+socket.on("init", (id)=>{
+myId = id;
 });
 
 socket.on("players", (data)=>{
 players = data;
 });
 
-// 🧱 MAPA (ściany)
-const walls = [
-{ x:200, y:200, w:200, h:20 },
-{ x:500, y:300, w:20, h:200 },
-{ x:300, y:500, w:300, h:20 }
-];
-
+// 🎮 player
 let me = {
-x: 100,
-y: 100,
+x: 300,
+y: 300,
 angle: 0,
-speed: 3
+speed: 4
 };
 
+// WASD
 let keys = {};
 
 document.addEventListener("keydown",(e)=>{
@@ -68,7 +106,7 @@ document.addEventListener("keyup",(e)=>{
 keys[e.key.toLowerCase()] = false;
 });
 
-// 🎮 ruch
+// 🧠 ruch
 function update(){
 
 if(keys["w"]) me.y -= me.speed;
@@ -76,95 +114,82 @@ if(keys["s"]) me.y += me.speed;
 if(keys["a"]) me.x -= me.speed;
 if(keys["d"]) me.x += me.speed;
 
-// wysyłka
-socket.emit("state", me);
+// sync
+socket.emit("move", me);
 }
 
-// 🧭 mysz = obrót
+// 🖱️ obrót myszką
 document.addEventListener("mousemove",(e)=>{
-me.angle = e.clientX / innerWidth * Math.PI * 2;
+
+let dx = e.clientX - canvas.width/2;
+let dy = e.clientY - canvas.height/2;
+
+me.angle = Math.atan2(dy, dx);
 });
 
-// 🔫 strzał
+// 🔫 strzelanie
 document.addEventListener("click",()=>{
-socket.emit("shoot");
+
+socket.emit("shoot", {
+x: me.x,
+y: me.y,
+angle: me.angle
+});
 });
 
-// 🎨 RAYCAST 3D (pseudo)
-function draw3D(){
+// 🎨 mapa + grafika
+function draw(){
 
-ctx.fillStyle = "#111";
+// tło (ładniejsze)
+ctx.fillStyle = "#0b0f14";
 ctx.fillRect(0,0,canvas.width,canvas.height);
 
-let fov = 60;
-let rays = 120;
+// światło (efekt FPS)
+let gradient = ctx.createRadialGradient(
+canvas.width/2, canvas.height/2, 50,
+canvas.width/2, canvas.height/2, canvas.width
+);
 
-for(let i=0;i<rays;i++){
+gradient.addColorStop(0,"rgba(255,255,255,0.05)");
+gradient.addColorStop(1,"rgba(0,0,0,0.6)");
 
-let rayAngle = me.angle - (fov/2) + (i/rays)*fov;
+ctx.fillStyle = gradient;
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-let dist = 0;
-let hit = false;
+// gracze
+for(let id in players){
 
-while(!hit && dist < 300){
+let p = players[id];
 
-dist += 2;
+// kolor teamu
+ctx.fillStyle = p.team === "red" ? "#ff3b3b" : "#3b8bff";
 
-let rx = me.x + Math.cos(rayAngle)*dist;
-let ry = me.y + Math.sin(rayAngle)*dist;
+// ciało
+ctx.fillRect(p.x - 10, p.y - 10, 20, 20);
 
-for(let w of walls){
+// HP
+ctx.fillStyle = "red";
+ctx.fillRect(p.x - 10, p.y - 18, 20, 3);
 
-if(rx>w.x && rx<w.x+w.w && ry>w.y && ry<w.y+w.h){
-hit = true;
-break;
+ctx.fillStyle = "lime";
+ctx.fillRect(p.x - 10, p.y - 18, (p.hp/100)*20, 3);
 }
 
+// ty (wyróżnienie)
+ctx.fillStyle = "yellow";
+ctx.fillRect(me.x - 10, me.y - 10, 20, 20);
+
+requestAnimationFrame(draw);
 }
 
-}
-
-let shade = 255 - dist;
-
-ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
-
-let h = 500 / (dist+1);
-
-ctx.fillRect(i*(canvas.width/rays), canvas.height/2 - h/2, canvas.width/rays+1, h);
-}
-
-}
-
-// 🧍 gracze
-function drawPlayers(){
-
-for(let i in players){
-
-let p = players[i];
-
-if(i === id) continue;
-
-ctx.fillStyle = p.team;
-
-ctx.fillRect(p.x/5, p.y/5, 10, 10);
-
-}
-
-}
-
-// 🔁 loop
+// loop
 function loop(){
-
 update();
-
-draw3D();
-
-drawPlayers();
-
 requestAnimationFrame(loop);
 }
 
 loop();
+draw();
 
 </script>
 
