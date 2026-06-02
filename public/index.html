@@ -38,7 +38,13 @@ const socket = io();
 let players = {};
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
+socket.on("init", (data) => {
+    players = data;
+});
 
+socket.on("players", (data) => {
+    players = data;
+});
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
