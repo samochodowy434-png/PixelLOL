@@ -2,37 +2,18 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>FPS 3D SIMPLE</title>
+<title>3D FPS SIMPLE PRO</title>
 
 <style>
 body{
 margin:0;
 overflow:hidden;
-background:#111;
-font-family:Arial;
+background:#000;
 cursor:none;
+font-family:Arial;
 }
 
 canvas{display:block;}
-
-#menu{
-position:fixed;
-width:100%;
-height:100%;
-background:linear-gradient(#111,#000);
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-z-index:10;
-color:white;
-}
-
-button{
-padding:15px 30px;
-font-size:20px;
-cursor:pointer;
-}
 
 #hud{
 position:fixed;
@@ -41,30 +22,22 @@ left:10px;
 color:white;
 background:rgba(0,0,0,0.5);
 padding:10px;
-border-radius:8px;
-display:none;
 }
 
 #cross{
 position:fixed;
 left:50%;
 top:50%;
-width:10px;
-height:10px;
+width:8px;
+height:8px;
 border:2px solid white;
-border-radius:50%;
 transform:translate(-50%,-50%);
-display:none;
+border-radius:50%;
 }
 </style>
 </head>
 
 <body>
-
-<div id="menu">
-<h1>FPS 3D SIMPLE</h1>
-<button onclick="start()">START</button>
-</div>
 
 <div id="hud">
 HP: <span id="hp">100</span> |
@@ -80,44 +53,35 @@ Kills: <span id="kills">0</span>
 <script>
 
 const socket = io();
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
 
-canvas.width = innerWidth;
-canvas.height = innerHeight;
+c.width = innerWidth;
+c.height = innerHeight;
 
 let players = {};
 let myId = null;
-let started = false;
 
 let me = {
-x:200,
-y:200,
-speed:3,
-angle:0
+x:100,
+y:100,
+angle:0,
+speed:2
 };
 
-// MAPA (ściany + granice świata)
+// MAPA 3D (ściany)
 const walls = [
-{x:0,y:0,w:800,h:20},
-{x:0,y:0,w:20,h:800},
-{x:780,y:0,w:20,h:800},
-{x:0,y:780,w:800,h:20},
+{ x:0,y:0,w:500,h:20 },
+{ x:0,y:0,w:20,h:500 },
+{ x:480,y:0,w:20,h:500 },
+{ x:0,y:480,w:500,h:20 },
 
-{x:200,y:200,w:200,h:20},
-{x:400,y:300,w:20,h:200}
+{ x:200,y:200,w:100,h:20 },
+{ x:300,y:100,w:20,h:120 }
 ];
 
-// START
-function start(){
-document.getElementById("menu").style.display="none";
-document.getElementById("hud").style.display="block";
-document.getElementById("cross").style.display="block";
-started = true;
-}
-
 // SOCKET
-socket.on("init",(id)=>{myId=id;});
+socket.on("init",(id)=> myId=id );
 
 socket.on("players",(data)=>{
 players=data;
@@ -129,17 +93,24 @@ document.getElementById("kills").innerText =
 players[myId]?.kills || 0;
 });
 
-// KONTROLA
+// MOVEMENT
 let keys={};
 
 document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
 document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
-// KOLIZJE
-function collide(x,y){
+// MYSZ = OBROT (WAŻNE)
+document.addEventListener("mousemove",(e)=>{
+me.angle = Math.atan2(
+e.clientY - c.height/2,
+e.clientX - c.width/2
+);
+});
 
+// KOLIZJE
+function collide(nx,ny){
 for(let w of walls){
-if(x>w.x && x<w.x+w.w && y>w.y && y<w.y+w.h){
+if(nx>w.x && nx<w.x+w.w && ny>w.y && ny<w.y+w.h){
 return true;
 }
 }
@@ -149,36 +120,36 @@ return false;
 // MOVE
 function update(){
 
-if(!started) return;
+let nx=me.x;
+let ny=me.y;
 
-let nx = me.x;
-let ny = me.y;
-
-if(keys["w"]) ny -= me.speed;
-if(keys["s"]) ny += me.speed;
-if(keys["a"]) nx -= me.speed;
-if(keys["d"]) nx += me.speed;
+if(keys["w"]){
+nx += Math.cos(me.angle)*me.speed;
+ny += Math.sin(me.angle)*me.speed;
+}
+if(keys["s"]){
+nx -= Math.cos(me.angle)*me.speed;
+ny -= Math.sin(me.angle)*me.speed;
+}
+if(keys["a"]){
+nx += Math.cos(me.angle-Math.PI/2)*me.speed;
+ny += Math.sin(me.angle-Math.PI/2)*me.speed;
+}
+if(keys["d"]){
+nx += Math.cos(me.angle+Math.PI/2)*me.speed;
+ny += Math.sin(me.angle+Math.PI/2)*me.speed;
+}
 
 if(!collide(nx,ny)){
-me.x = nx;
-me.y = ny;
+me.x=nx;
+me.y=ny;
 }
 
 socket.emit("move",me);
 }
 
-// MYSZ
-document.addEventListener("mousemove",(e)=>{
-me.angle = Math.atan2(
-e.clientY - canvas.height/2,
-e.clientX - canvas.width/2
-);
-});
-
-// STRZELANIE (NAPRAWIONE)
+// STRZELANIE (REAL FIX)
 document.addEventListener("click",()=>{
-
-if(!started) return;
 
 socket.emit("shoot",{
 x:me.x,
@@ -186,44 +157,68 @@ y:me.y
 });
 });
 
-// RYSOWANIE
-function draw(){
+// RENDER 3D (raycast fake)
+function draw3D(){
 
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-// TŁO
 ctx.fillStyle="#1a1a1a";
-ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillRect(0,0,c.width,c.height);
 
-// ŚCIANY
-ctx.fillStyle="#444";
+for(let i=0;i<100;i++){
+
+let rayAngle = me.angle - 0.5 + (i/100);
+
+let rx = me.x;
+let ry = me.y;
+
+for(let j=0;j<200;j++){
+
+rx += Math.cos(rayAngle)*2;
+ry += Math.sin(rayAngle)*2;
+
 for(let w of walls){
-ctx.fillRect(w.x,w.y,w.w,w.h);
+
+if(rx>w.x && rx<w.x+w.w && ry>w.y && ry<w.y+w.h){
+
+let dist = Math.hypot(rx-me.x, ry-me.y);
+
+let h = 500 / dist;
+
+ctx.fillStyle = `rgb(${200-dist},${200-dist},255)`;
+
+ctx.fillRect(i*10, c.height/2 - h/2, 10, h);
+
+j=200;
+break;
 }
 
-// GRACZE (FASOLKI)
+}
+
+}
+}
+
+}
+
+// PLAYERS (fasolki 3D overlay)
+function drawPlayers(){
+
 for(let id in players){
 
-let p = players[id];
+let p=players[id];
 
-ctx.fillStyle = p.team=="red"?"red":"blue";
+ctx.fillStyle=p.hp>50?"red":"darkred";
 
 ctx.beginPath();
-ctx.arc(p.x,p.y,12,0,Math.PI*2);
+ctx.arc(p.x,p.y,8,0,Math.PI*2);
 ctx.fill();
+
 }
-
-// TY
-ctx.fillStyle="yellow";
-ctx.beginPath();
-ctx.arc(me.x,me.y,12,0,Math.PI*2);
-ctx.fill();
 }
 
 // LOOP
 function loop(){
 update();
-draw();
+draw3D();
+drawPlayers();
 requestAnimationFrame(loop);
 }
 
