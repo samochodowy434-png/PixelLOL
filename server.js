@@ -10,47 +10,46 @@ let players = {};
 io.on("connection",(socket)=>{
 
 players[socket.id] = {
-x:200,
-y:200,
-hp:100,
+x: 300,
+y: 300,
+hp: 100,
 team: Math.random()>0.5?"red":"blue"
 };
 
 socket.emit("init", socket.id);
 
 socket.on("move",(data)=>{
-if(players[socket.id]){
 players[socket.id].x = data.x;
 players[socket.id].y = data.y;
-}
-io.emit("players",players);
 });
 
-socket.on("shoot",()=>{
-// prosty damage radius
-let p1 = players[socket.id];
-if(!p1) return;
+socket.on("shoot",(data)=>{
 
 for(let id in players){
+
 if(id === socket.id) continue;
 
-let p2 = players[id];
+let p = players[id];
 
-let dx = p2.x - p1.x;
-let dy = p2.y - p1.y;
+let dx = p.x - data.x;
+let dy = p.y - data.y;
 
-if(Math.sqrt(dx*dx+dy*dy) < 40){
-p2.hp -= 20;
+let dist = Math.sqrt(dx*dx + dy*dy);
 
-if(p2.hp <= 0){
-p2.hp = 100;
-p2.x = 200;
-p2.y = 200;
+if(dist < 60){
+p.hp -= 20;
+
+if(p.hp <= 0){
+p.hp = 100;
+p.x = 300;
+p.y = 300;
 }
 }
+
 }
 
 io.emit("players",players);
+
 });
 
 socket.on("disconnect",()=>{
