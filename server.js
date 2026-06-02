@@ -7,58 +7,55 @@ app.use(express.static("public"));
 
 let players = {};
 
-io.on("connection", (socket) => {
+io.on("connection",(socket)=>{
 
-    players[socket.id] = {
-        x: 300,
-        y: 300,
-        angle: 0,
-        hp: 100,
-        team: Math.random() > 0.5 ? "red" : "blue"
-    };
+players[socket.id] = {
+x:200,
+y:200,
+hp:100,
+team: Math.random()>0.5?"red":"blue"
+};
 
-    socket.emit("init", socket.id);
+socket.emit("init", socket.id);
 
-    socket.on("state", (data) => {
-        if(players[socket.id]){
-            players[socket.id].x = data.x;
-            players[socket.id].y = data.y;
-            players[socket.id].angle = data.angle;
-        }
-    });
+socket.on("move",(data)=>{
+if(players[socket.id]){
+players[socket.id].x = data.x;
+players[socket.id].y = data.y;
+}
+io.emit("players",players);
+});
 
-    socket.on("shoot", () => {
+socket.on("shoot",()=>{
+// prosty damage radius
+let p1 = players[socket.id];
+if(!p1) return;
 
-        let p1 = players[socket.id];
-        if(!p1) return;
+for(let id in players){
+if(id === socket.id) continue;
 
-        for(let id in players){
-            if(id === socket.id) continue;
+let p2 = players[id];
 
-            let p2 = players[id];
+let dx = p2.x - p1.x;
+let dy = p2.y - p1.y;
 
-            let dx = p2.x - p1.x;
-            let dy = p2.y - p1.y;
+if(Math.sqrt(dx*dx+dy*dy) < 40){
+p2.hp -= 20;
 
-            let dist = Math.sqrt(dx*dx + dy*dy);
+if(p2.hp <= 0){
+p2.hp = 100;
+p2.x = 200;
+p2.y = 200;
+}
+}
+}
 
-            if(dist < 80){
-                p2.hp -= 25;
+io.emit("players",players);
+});
 
-                if(p2.hp <= 0){
-                    p2.hp = 100;
-                    p2.x = 200;
-                    p2.y = 200;
-                }
-            }
-        }
-
-        io.emit("players", players);
-    });
-
-    socket.on("disconnect", () => {
-        delete players[socket.id];
-    });
+socket.on("disconnect",()=>{
+delete players[socket.id];
+});
 
 });
 
