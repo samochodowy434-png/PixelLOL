@@ -13,6 +13,7 @@ players[socket.id] = {
 x: 300,
 y: 300,
 hp: 100,
+kills: 0,
 team: Math.random() > 0.5 ? "red" : "blue"
 };
 
@@ -21,13 +22,16 @@ socket.emit("init", socket.id);
 socket.on("move", (data) => {
 let p = players[socket.id];
 if(!p) return;
+
 p.x = data.x;
 p.y = data.y;
+p.angle = data.angle;
 });
 
 socket.on("shoot", (data) => {
 
 for(let id in players){
+
 if(id === socket.id) continue;
 
 let p = players[id];
@@ -37,14 +41,19 @@ let dy = p.y - data.y;
 
 let dist = Math.sqrt(dx*dx + dy*dy);
 
-if(dist < 60){
+if(dist < 70){
+
 p.hp -= 25;
 
 if(p.hp <= 0){
+
 p.hp = 100;
 p.x = 300;
 p.y = 300;
+
+players[socket.id].kills++;
 }
+
 }
 }
 
