@@ -2,19 +2,20 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Minecraft 3D Multiplayer</title>
+<title>Minecraft 3D PRO</title>
 
 <style>
 body{margin:0;overflow:hidden;}
 canvas{display:block;}
+
 #hud{
 position:fixed;
 top:10px;
 left:10px;
 color:white;
-font-family:Arial;
 background:rgba(0,0,0,0.5);
 padding:10px;
+font-family:Arial;
 }
 </style>
 </head>
@@ -22,9 +23,9 @@ padding:10px;
 <body>
 
 <div id="hud">
-Minecraft 3D MP<br>
+Minecraft 3D PRO<br>
 WASD + MYSZ<br>
-LPM = blok | PPM = usuwanie
+LPM = blok | PPM = niszcz
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -43,48 +44,49 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// 🌱 LIGHT
-const light = new THREE.AmbientLight(0xffffff,1);
-scene.add(light);
+// LIGHT
+scene.add(new THREE.AmbientLight(0xffffff,1));
 
-// 🧱 BLOCKS
+// WORLD
 let blocks = [];
-let worldBlocks = [];
+let world = [];
 
-// 👤 PLAYERS
+// PLAYERS
 let players = {};
 
+// PLAYER
 let me = {
 x:0,
 y:2,
 z:0,
-rotY:0
+rotY:0,
+speed:0.08
 };
 
-// TYPES
-const colors = [0x8B4513,0x888888,0x00ff00];
+// BLOCK COLORS
+const colors = [0x8B4513,0x777777,0x00ff00];
 let currentBlock = 0;
 
 // INIT
 socket.on("init",(data)=>{
 players = data.players;
-worldBlocks = data.blocks;
-
-worldBlocks.forEach(addBlockMesh);
+world = data.blocks;
+drawWorld();
 });
 
-// UPDATE WORLD
-socket.on("worldUpdate",(data)=>{
-worldBlocks = data;
-refreshBlocks();
+// PLAYERS UPDATE
+socket.on("players",(p)=>{
+players = p;
 });
 
-socket.on("playersUpdate",(data)=>{
-players = data;
+// WORLD UPDATE
+socket.on("world",(w)=>{
+world = w;
+drawWorld();
 });
 
-// 🧱 CREATE BLOCK
-function addBlockMesh(b){
+// CREATE BLOCK
+function createBlock(b){
 const geo = new THREE.BoxGeometry(1,1,1);
 const mat = new THREE.MeshBasicMaterial({color:colors[b.type]});
 const mesh = new THREE.Mesh(geo,mat);
@@ -94,14 +96,15 @@ scene.add(mesh);
 blocks.push(mesh);
 }
 
-// RESET BLOCKS
-function refreshBlocks(){
+// REDRAW WORLD
+function drawWorld(){
 blocks.forEach(b=>scene.remove(b));
 blocks=[];
-worldBlocks.forEach(addBlockMesh);
+
+world.forEach(createBlock);
 }
 
-// 🎮 INPUT
+// INPUT
 let keys={};
 
 document.addEventListener("keydown",(e)=>{
@@ -116,16 +119,15 @@ document.addEventListener("keyup",(e)=>{
 keys[e.key.toLowerCase()] = false;
 });
 
-// 🖱️ MOUSE
+// MOUSE LOOK
 document.addEventListener("mousemove",(e)=>{
 me.rotY -= e.movementX * 0.002;
 camera.rotation.y = me.rotY;
 });
 
-// 🧱 COLLISION
-function collide(x,z){
-
-for(let b of worldBlocks){
+// COLLISION
+function collides(x,z){
+for(let b of world){
 if(
 Math.abs(x-b.x)<0.6 &&
 Math.abs(z-b.z)<0.6
@@ -136,33 +138,31 @@ return true;
 return false;
 }
 
-// 🚶 MOVE
+// MOVE (MC STYLE)
 function update(){
-
-let speed = 0.08;
 
 let nx = me.x;
 let nz = me.z;
 
 if(keys["w"]){
-nx += Math.sin(me.rotY)*speed;
-nz += Math.cos(me.rotY)*speed;
+nx += Math.sin(me.rotY)*me.speed;
+nz += Math.cos(me.rotY)*me.speed;
 }
 if(keys["s"]){
-nx -= Math.sin(me.rotY)*speed;
-nz -= Math.cos(me.rotY)*speed;
+nx -= Math.sin(me.rotY)*me.speed;
+nz -= Math.cos(me.rotY)*me.speed;
 }
 if(keys["a"]){
-nx += Math.sin(me.rotY-Math.PI/2)*speed;
-nz += Math.cos(me.rotY-Math.PI/2)*speed;
+nx += Math.sin(me.rotY-Math.PI/2)*me.speed;
+nz += Math.cos(me.rotY-Math.PI/2)*me.speed;
 }
 if(keys["d"]){
-nx += Math.sin(me.rotY+Math.PI/2)*speed;
-nz += Math.cos(me.rotY+Math.PI/2)*speed;
+nx += Math.sin(me.rotY+Math.PI/2)*me.speed;
+nz += Math.cos(me.rotY+Math.PI/2)*me.speed;
 }
 
-// ✔ KOLIZJE
-if(!collide(nx,nz)){
+// ✔ KOLIZJE JAK MC
+if(!collides(nx,nz)){
 me.x = nx;
 me.z = nz;
 }
@@ -172,49 +172,47 @@ camera.position.set(me.x,me.y,me.z);
 socket.emit("move",me);
 }
 
-// 🧱 PLACE BLOCK
+// 🧱 STAWIANIE BLOKÓW (MC STYLE)
 document.addEventListener("click",()=>{
 let b = {
-x:Math.round(me.x + Math.sin(me.rotY)*2),
+x:Math.round(me.x + Math.sin(me.rotY)),
 y:0,
-z:Math.round(me.z + Math.cos(me.rotY)*2),
+z:Math.round(me.z + Math.cos(me.rotY)),
 type:currentBlock
 };
 
 socket.emit("addBlock",b);
 });
 
-// ❌ REMOVE BLOCK
+// ❌ NISZCZENIE BLOKÓW (NAJBLIŻSZY)
 document.addEventListener("contextmenu",(e)=>{
 e.preventDefault();
 
-socket.emit("removeBlock",worldBlocks.length-1);
+let bestIndex = -1;
+let bestDist = 999;
+
+world.forEach((b,i)=>{
+let dx = b.x - me.x;
+let dz = b.z - me.z;
+
+let d = Math.sqrt(dx*dx+dz*dz);
+
+if(d < bestDist && d < 3){
+bestDist = d;
+bestIndex = i;
+}
 });
 
-// 👤 DRAW PLAYERS
-function drawPlayers(){
-
-for(let id in players){
-
-let p = players[id];
-
-const geo = new THREE.SphereGeometry(0.3,8,8);
-const mat = new THREE.MeshBasicMaterial({color:0xff0000});
-const mesh = new THREE.Mesh(geo,mat);
-
-mesh.position.set(p.x,p.y,p.z);
-scene.add(mesh);
-
+if(bestIndex !== -1){
+socket.emit("removeBlock",bestIndex);
 }
-
-}
+});
 
 // LOOP
 function loop(){
 requestAnimationFrame(loop);
 
 update();
-drawPlayers();
 
 renderer.render(scene,camera);
 }
