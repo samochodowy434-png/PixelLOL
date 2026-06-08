@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lotto 3D - Gra</title>
+<title>Lotto</title>
 
 <style>
 body{
@@ -14,34 +14,22 @@ body{
     text-align:center;
 }
 
-h1{margin:15px}
-
 #machine{
-    width:260px;
-    height:260px;
+    width:240px;
+    height:240px;
     margin:20px auto;
     border-radius:50%;
     border:8px solid rgba(255,255,255,0.25);
     background:radial-gradient(circle,#334155,#0f172a);
     position:relative;
-    overflow:hidden;
 }
 
-.ball3d{
+.ball{
     width:16px;
     height:16px;
     border-radius:50%;
     background:#60a5fa;
     position:absolute;
-}
-
-.spin{
-    animation:spin 1.5s linear infinite;
-}
-
-@keyframes spin{
-    from{transform:rotate(0deg)}
-    to{transform:rotate(360deg)}
 }
 
 .grid{
@@ -57,18 +45,15 @@ h1{margin:15px}
     height:58px;
     border-radius:50%;
     display:flex;
-    justify-content:center;
     align-items:center;
+    justify-content:center;
     cursor:pointer;
     background:radial-gradient(circle,#fff,#facc15);
     color:black;
     font-weight:bold;
-    transition:0.2s;
 }
 
-.num:hover{transform:scale(1.05)}
-
-.selected{
+.sel{
     background:radial-gradient(circle,#fff,#22c55e);
 }
 
@@ -76,146 +61,125 @@ button{
     padding:10px 18px;
     font-size:18px;
     margin:8px;
-    cursor:pointer;
 }
 
-#results{
-    display:flex;
-    justify-content:center;
-    gap:10px;
-    flex-wrap:wrap;
-    margin-top:15px;
+#stats{
+    margin-top:20px;
+    font-size:18px;
 }
 
-.drawn{
-    width:65px;
-    height:65px;
-    border-radius:50%;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    background:#60a5fa;
-    color:black;
-    font-weight:bold;
+.win{
+    color:#22c55e;
     font-size:22px;
+    font-weight:bold;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🎲 Symulator Lotto 3D</h1>
-<p>Wybierz 6 liczb (1–49)</p>
-
 <div id="machine"></div>
 
 <div class="grid" id="grid"></div>
 
-<button id="drawBtn">Losuj</button>
-<button id="resetBtn">Nowa gra</button>
+<button id="draw">Losuj globalnie</button>
 
-<p><b>Twoje liczby:</b> <span id="picked"></span></p>
+<p><b>Twoje liczby:</b> <span id="mine"></span></p>
 
-<div id="results"></div>
-<h2 id="score"></h2>
+<div id="stats"></div>
+<div id="global"></div>
 
 <script>
 let selected = [];
-let finished = false;
 
+// tworzenie kulek w maszynie
 const machine = document.getElementById("machine");
+for(let i=0;i<35;i++){
+    const b = document.createElement("div");
+    b.className = "ball";
+    b.style.left = (120 + Math.cos(i)*90) + "px";
+    b.style.top  = (120 + Math.sin(i*1.6)*90) + "px";
+    machine.appendChild(b);
+}
+
+// liczby
 const grid = document.getElementById("grid");
 
-function createMachineBalls(){
-    machine.innerHTML = "";
-    for(let i=0;i<35;i++){
-        const b = document.createElement("div");
-        b.className = "ball3d";
-        b.style.left = (120 + Math.cos(i)*90) + "px";
-        b.style.top  = (120 + Math.sin(i*1.6)*90) + "px";
-        machine.appendChild(b);
-    }
-}
+for(let i=1;i<=49;i++){
+    const el = document.createElement("div");
+    el.className = "num";
+    el.textContent = i;
 
-createMachineBalls();
-
-function createGrid(){
-    grid.innerHTML = "";
-    selected = [];
-    finished = false;
-    document.getElementById("picked").textContent = "";
-    document.getElementById("results").innerHTML = "";
-    document.getElementById("score").textContent = "";
-    machine.classList.remove("spin");
-
-    for(let i=1;i<=49;i++){
-        const el = document.createElement("div");
-        el.className = "num";
-        el.textContent = i;
-
-        el.onclick = () => {
-            if(finished) return;
-
-            if(selected.includes(i)){
-                selected = selected.filter(x => x !== i);
-                el.classList.remove("selected");
-            } else if(selected.length < 6){
-                selected.push(i);
-                el.classList.add("selected");
-            }
-
-            document.getElementById("picked").textContent =
-                selected.sort((a,b)=>a-b).join(", ");
-        };
-
-        grid.appendChild(el);
-    }
-}
-
-createGrid();
-
-document.getElementById("drawBtn").onclick = () => {
-    if(finished) return alert("Kliknij Nowa gra!");
-
-    if(selected.length !== 6)
-        return alert("Wybierz 6 liczb!");
-
-    finished = true;
-    machine.classList.add("spin");
-
-    setTimeout(() => {
-        machine.classList.remove("spin");
-
-        let pool = [...Array(49)].map((_,i)=>i+1);
-        let draw = [];
-
-        while(draw.length < 6){
-            let r = Math.floor(Math.random() * pool.length);
-            draw.push(pool.splice(r,1)[0]);
+    el.onclick = () => {
+        if(selected.includes(i)){
+            selected = selected.filter(x=>x!==i);
+            el.classList.remove("sel");
+        } else if(selected.length < 6){
+            selected.push(i);
+            el.classList.add("sel");
         }
 
-        draw.sort((a,b)=>a-b);
+        document.getElementById("mine").textContent =
+            selected.sort((a,b)=>a-b).join(", ");
+    };
 
-        const res = document.getElementById("results");
-        res.innerHTML = "";
+    grid.appendChild(el);
+}
 
-        draw.forEach(n => {
-            const d = document.createElement("div");
-            d.className = "drawn";
-            d.textContent = n;
-            res.appendChild(d);
-        });
+// GLOBALNE LOSOWANIE
+document.getElementById("draw").onclick = () => {
 
-        const hits = draw.filter(x => selected.includes(x)).length;
-        document.getElementById("score").textContent =
-            "Trafienia: " + hits + "/6";
+    const pool = [...Array(49)].map((_,i)=>i+1);
+    const drawn = [];
 
-    }, 2000);
-};
+    while(drawn.length < 6){
+        const r = Math.floor(Math.random()*pool.length);
+        drawn.push(pool.splice(r,1)[0]);
+    }
 
-document.getElementById("resetBtn").onclick = () => {
-    createGrid();
-    createMachineBalls();
+    let stats = {
+        2:0,
+        3:0,
+        4:0,
+        5:0,
+        6:0
+    };
+
+    // symulacja wielu graczy
+    const players = 500;
+
+    for(let p=0;p<players;p++){
+
+        const user = [];
+        const temp = [...Array(49)].map((_,i)=>i+1);
+
+        while(user.length<6){
+            const r = Math.floor(Math.random()*temp.length);
+            user.push(temp.splice(r,1)[0]);
+        }
+
+        const hits = user.filter(x=>drawn.includes(x)).length;
+
+        if(hits >= 2){
+            stats[hits]++;
+        }
+    }
+
+    document.getElementById("stats").innerHTML = `
+        <h3>📊 Statystyki graczy (${players})</h3>
+        6: ${stats[6]}<br>
+        5: ${stats[5]}<br>
+        4: ${stats[4]}<br>
+        3: ${stats[3]}<br>
+        2: ${stats[2]}
+    `;
+
+    let hitsUser = selected.filter(x=>drawn.includes(x)).length;
+
+    document.getElementById("global").innerHTML =
+        hitsUser === 6
+        ? "<div class='win'>🎉 KTOŚ TRAFIŁ 6! (może Ty 😎)</div>"
+        : "Twoje trafienia: " + hitsUser + "/6";
 };
 </script>
 
